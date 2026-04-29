@@ -37,7 +37,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Upsert their profile (creates it on first login)
-  await supabase.from('profiles').upsert(
+  await (supabase.from('profiles') as any).upsert(
     {
       id: data.user.id,
       email: userEmail,
