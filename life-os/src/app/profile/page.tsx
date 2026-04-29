@@ -30,13 +30,13 @@ export default async function ProfilePage() {
         </div>
       </main>
 
-      <style>{\`
+      <style>{`
         .profile-page { min-height: 100vh; background: var(--cream); }
         .profile-main { padding-top: 2.5rem; padding-bottom: 4rem; max-width: 680px; }
         .profile-header { margin-bottom: 2rem; display: flex; flex-direction: column; gap: 0.5rem; }
         .profile-title { font-size: 2rem; font-weight: 600; letter-spacing: -0.03em; }
         .profile-subtitle { color: var(--text-secondary); font-size: 0.9375rem; }
-      \`}</style>
+      `}</style>
     </div>
   )
 }
