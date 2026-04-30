@@ -8,6 +8,7 @@ type FilterStatus = 'active' | 'completed' | 'all'
 export default function TasksList({
   tasks,
   projects,
+  userId,
   selectedProjectId,
   selectedTaskId,
   filterStatus,
