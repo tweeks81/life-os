@@ -29,6 +29,17 @@ export default function ContactDetail({
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
 
+  const calculateAge = (dob: string) => {
+    const today = new Date()
+    const birth = new Date(dob)
+    let age = today.getFullYear() - birth.getFullYear()
+    const monthDiff = today.getMonth() - birth.getMonth()
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birth.getDate())) {
+      age--
+    }
+    return age
+  }
+
   const handleDelete = () => {
     if (confirm(`Delete ${contactDisplayName(contact)}? This cannot be undone.`)) {
       onDelete()
@@ -109,7 +120,12 @@ export default function ContactDetail({
               <span className="field-icon">🎂</span>
               <div className="field-content">
                 <span className="field-label">Date of birth</span>
-                <span className="field-value">{formatDate(contact.date_of_birth)}</span>
+                <span className="field-value">
+                  {formatDate(contact.date_of_birth)}
+                  <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '0.5rem' }}>
+                    (age {calculateAge(contact.date_of_birth)})
+                  </span>
+                </span>
               </div>
             </div>
           )}
