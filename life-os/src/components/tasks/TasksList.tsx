@@ -22,6 +22,7 @@ export default function TasksList({
 }: {
   tasks: Task[]
   projects: Project[]
+  userId: string
   selectedProjectId: string | null
   selectedTaskId: string | null
   filterStatus: FilterStatus
@@ -168,7 +169,7 @@ export default function TasksList({
               <div className="task-group">
                 {grouped.projectGroups.length > 0 && (
                   <div className="group-header">
-                    <span className="group-name">No project</span>
+                    <span className="group-name">Individual Tasks</span>
                     <span className="group-count">{grouped.ungrouped.length}</span>
                   </div>
                 )}
@@ -176,6 +177,7 @@ export default function TasksList({
                   <TaskCard
                     key={task.id}
                     task={task}
+                    userId={userId}
                     selected={task.id === selectedTaskId}
                     onClick={() => onSelectTask(task)}
                   />
@@ -198,6 +200,7 @@ export default function TasksList({
                   <TaskCard
                     key={task.id}
                     task={task}
+                    userId={userId}
                     selected={task.id === selectedTaskId}
                     onClick={() => onSelectTask(task)}
                   />
@@ -410,8 +413,9 @@ export default function TasksList({
   )
 }
 
-function TaskCard({ task, selected, onClick }: { task: Task; selected: boolean; onClick: () => void }) {
+function TaskCard({ task, userId, selected, onClick }: { task: Task; userId: string; selected: boolean; onClick: () => void }) {
   const isDone = task.status === 'done'
+  const isShared = task.user_id !== userId
 
   return (
     <button className={`task-card ${selected ? 'selected' : ''} ${isDone ? 'done' : ''}`} onClick={onClick}>
@@ -425,6 +429,7 @@ function TaskCard({ task, selected, onClick }: { task: Task; selected: boolean; 
             <span className="task-title">{task.title}</span>
             {task.status === 'in_progress' && <span className="status-badge in-progress">In progress</span>}
             {task.status === 'blocked' && <span className="status-badge blocked">Blocked</span>}
+            {isShared && <span className="status-badge shared">👥 Shared</span>}
           </div>
           <div className="task-card-meta">
             <span
@@ -554,6 +559,10 @@ function TaskCard({ task, selected, onClick }: { task: Task; selected: boolean; 
         .status-badge.blocked {
           background: #fef2f2;
           color: #dc2626;
+        }
+        .status-badge.shared {
+          background: #eff6ff;
+          color: #2563eb;
         }
       `}</style>
     </button>

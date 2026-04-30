@@ -210,6 +210,7 @@ function ProjectItem({
           style={{ background: project.colour ?? '#8b6b4a' }}
         />
         <span className="proj-name">{project.name}</span>
+        {(project as any).isShared && <span title="Shared with you" style={{fontSize:'0.7rem'}}>👥</span>}
         {(project.open_task_count ?? 0) > 0 && (
           <span className="sidebar-item-count">{project.open_task_count}</span>
         )}

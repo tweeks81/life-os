@@ -8,6 +8,7 @@ import {
   PRIORITY_LABELS, PRIORITY_COLOURS, PRIORITY_BG,
   ACTION_TYPE_LABELS, ActionType
 } from '@/types/tasks'
+import SharePanel, { ShareRecord } from './SharePanel'
 
 export default function TaskDetail({
   task,
@@ -15,6 +16,8 @@ export default function TaskDetail({
   loadingActions,
   projects,
   userId,
+  shares,
+  onSharesChanged,
   onClose,
   onTaskSaved,
   onActionAdded,
@@ -24,11 +27,15 @@ export default function TaskDetail({
   loadingActions: boolean
   projects: Project[]
   userId: string
+  shares: ShareRecord[]
+  onSharesChanged: () => void
   onClose: () => void
   onTaskSaved: (t: Task) => void
   onActionAdded: (taskId: string) => void
 }) {
   const supabase = createClient()
+  const isOwner = task.user_id === userId
+  const isShared = !isOwner
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
   const [savingAction, setSavingAction] = useState(false)
@@ -139,6 +146,9 @@ export default function TaskDetail({
             >
               {PRIORITY_LABELS[task.priority]}
             </span>
+            {isShared && (
+              <span className="shared-badge">👥 Shared with you</span>
+            )}
           </div>
           <div className="detail-header-right">
             {!editing && (
@@ -295,6 +305,17 @@ export default function TaskDetail({
                   </div>
                 )}
               </div>
+
+              {isOwner && (
+                <SharePanel
+                  entityId={task.id}
+                  entityType="task"
+                  ownerId={task.user_id}
+                  userId={userId}
+                  shares={shares}
+                  onSharesChanged={onSharesChanged}
+                />
+              )}
             </div>
           )}
 
@@ -449,6 +470,22 @@ export default function TaskDetail({
           font-weight: 700;
           padding: 0.25rem 0.625rem;
           border-radius: 6px;
+        }
+
+        .detail-header-left {
+          display: flex;
+          align-items: center;
+          gap: 0.5rem;
+          flex-wrap: wrap;
+        }
+
+        .shared-badge {
+          font-size: 0.75rem;
+          font-weight: 600;
+          padding: 0.2rem 0.5rem;
+          border-radius: 6px;
+          background: #eff6ff;
+          color: #2563eb;
         }
 
         .detail-scroll {

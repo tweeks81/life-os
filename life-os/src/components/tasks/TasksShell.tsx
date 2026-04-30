@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Project, Task, TaskAction } from '@/types/tasks'
+import { ShareRecord } from './SharePanel'
 import TasksSidebar from './TasksSidebar'
 import TasksList from './TasksList'
 import TaskDetail from './TaskDetail'
@@ -15,11 +16,15 @@ type FilterStatus = 'active' | 'completed' | 'all'
 export default function TasksShell({
   initialProjects,
   initialTasks,
+  initialTaskShares,
+  initialProjectShares,
   userId,
   profile,
 }: {
   initialProjects: Project[]
   initialTasks: Task[]
+  initialTaskShares: Record<string, ShareRecord[]>
+  initialProjectShares: Record<string, ShareRecord[]>
   userId: string
   profile: { full_name: string | null; avatar_url: string | null } | null
 }) {
@@ -27,6 +32,8 @@ export default function TasksShell({
 
   const [projects, setProjects] = useState<Project[]>(initialProjects)
   const [tasks, setTasks] = useState<Task[]>(initialTasks)
+  const [taskShares, setTaskShares] = useState<Record<string, ShareRecord[]>>(initialTaskShares)
+  const [projectShares, setProjectShares] = useState<Record<string, ShareRecord[]>>(initialProjectShares)
   const [selectedTask, setSelectedTask] = useState<Task | null>(null)
   const [taskActions, setTaskActions] = useState<TaskAction[]>([])
   const [loadingActions, setLoadingActions] = useState(false)
@@ -39,23 +46,38 @@ export default function TasksShell({
   const [editingProject, setEditingProject] = useState<Project | null>(null)
 
   const refreshTasks = useCallback(async () => {
+    // Fetch own + shared tasks (RLS handles this automatically now)
     const { data } = await supabase
       .from('tasks')
       .select('*, project:projects(id, name, colour)')
-      .eq('user_id', userId)
       .order('priority', { ascending: true })
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
     if (data) setTasks(data as Task[])
-  }, [supabase, userId])
+  }, [supabase])
 
   const refreshProjects = useCallback(async () => {
     const { data } = await supabase
       .from('projects')
       .select('*')
-      .eq('user_id', userId)
       .order('created_at', { ascending: true })
     if (data) setProjects(data as Project[])
+  }, [supabase])
+
+  const refreshTaskShares = useCallback(async (taskId: string) => {
+    const { data } = await (supabase.from('task_shares') as any)
+      .select('id, shared_with_email, created_at')
+      .eq('task_id', taskId)
+      .eq('owner_id', userId)
+    setTaskShares(prev => ({ ...prev, [taskId]: data ?? [] }))
+  }, [supabase, userId])
+
+  const refreshProjectShares = useCallback(async (projectId: string) => {
+    const { data } = await (supabase.from('project_shares') as any)
+      .select('id, shared_with_email, created_at')
+      .eq('project_id', projectId)
+      .eq('owner_id', userId)
+    setProjectShares(prev => ({ ...prev, [projectId]: data ?? [] }))
   }, [supabase, userId])
 
   const openTask = useCallback(async (task: Task) => {
@@ -68,7 +90,11 @@ export default function TasksShell({
       .order('actioned_at', { ascending: false })
     setTaskActions((data as TaskAction[]) ?? [])
     setLoadingActions(false)
-  }, [supabase])
+    // Fetch shares for this task if owner
+    if (task.user_id === userId) {
+      refreshTaskShares(task.id)
+    }
+  }, [supabase, userId, refreshTaskShares])
 
   const closeTask = useCallback(() => {
     setSelectedTask(null)
@@ -77,7 +103,6 @@ export default function TasksShell({
 
   const handleTaskSaved = useCallback(async (task: Task) => {
     await refreshTasks()
-    // Re-fetch the task to get computed priority
     const { data } = await supabase
       .from('tasks')
       .select('*, project:projects(id, name, colour)')
@@ -85,7 +110,6 @@ export default function TasksShell({
       .single()
     if (data) {
       setSelectedTask(data as Task)
-      // Also refresh actions in case "done" was set
       const { data: actions } = await supabase
         .from('task_actions')
         .select('*')
@@ -110,12 +134,11 @@ export default function TasksShell({
     setEditingProject(null)
   }, [refreshProjects])
 
-  // Compute open task counts per project
   const projectsWithCounts = projects.map(p => ({
     ...p,
-    open_task_count: tasks.filter(t =>
-      t.project_id === p.id && t.status !== 'done'
-    ).length
+    open_task_count: tasks.filter(t => t.project_id === p.id && t.status !== 'done').length,
+    isShared: p.user_id !== userId,
+    shares: projectShares[p.id] ?? [],
   }))
 
   const stats = {
@@ -130,7 +153,6 @@ export default function TasksShell({
       <NavBar profile={profile} />
 
       <div className="tasks-body">
-        {/* Sidebar */}
         <TasksSidebar
           projects={projectsWithCounts}
           selectedProjectId={selectedProjectId}
@@ -140,10 +162,10 @@ export default function TasksShell({
           totalActiveTasks={stats.active}
         />
 
-        {/* Main list */}
         <TasksList
           tasks={tasks}
           projects={projectsWithCounts}
+          userId={userId}
           selectedProjectId={selectedProjectId}
           selectedTaskId={selectedTask?.id ?? null}
           filterStatus={filterStatus}
@@ -157,7 +179,6 @@ export default function TasksShell({
           onNewTask={() => setShowTaskForm(true)}
         />
 
-        {/* Detail panel */}
         {selectedTask && (
           <TaskDetail
             task={selectedTask}
@@ -165,6 +186,8 @@ export default function TasksShell({
             loadingActions={loadingActions}
             projects={projects}
             userId={userId}
+            shares={taskShares[selectedTask.id] ?? []}
+            onSharesChanged={() => refreshTaskShares(selectedTask.id)}
             onClose={closeTask}
             onTaskSaved={handleTaskSaved}
             onActionAdded={handleActionAdded}
@@ -172,7 +195,6 @@ export default function TasksShell({
         )}
       </div>
 
-      {/* New task modal */}
       {showTaskForm && (
         <TaskForm
           projects={projects}
@@ -186,11 +208,12 @@ export default function TasksShell({
         />
       )}
 
-      {/* Project form modal */}
       {showProjectForm && (
         <ProjectForm
           userId={userId}
           project={editingProject}
+          shares={editingProject ? (projectShares[editingProject.id] ?? []) : []}
+          onSharesChanged={editingProject ? () => refreshProjectShares(editingProject.id) : () => {}}
           onSaved={handleProjectSaved}
           onClose={() => { setShowProjectForm(false); setEditingProject(null) }}
         />
@@ -204,7 +227,6 @@ export default function TasksShell({
           background: var(--cream);
           overflow: hidden;
         }
-
         .tasks-body {
           flex: 1;
           display: flex;

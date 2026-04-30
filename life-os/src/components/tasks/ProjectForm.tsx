@@ -3,15 +3,20 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Project, DEFAULT_PROJECT_COLOURS } from '@/types/tasks'
+import SharePanel, { ShareRecord } from './SharePanel'
 
 export default function ProjectForm({
   userId,
   project,
+  shares,
+  onSharesChanged,
   onSaved,
   onClose,
 }: {
   userId: string
   project: Project | null
+  shares: ShareRecord[]
+  onSharesChanged: () => void
   onSaved: () => void
   onClose: () => void
 }) {
@@ -128,6 +133,17 @@ export default function ProjectForm({
           </div>
 
           {error && <p className="form-error">{error}</p>}
+
+          {project && (
+            <SharePanel
+              entityId={project.id}
+              entityType="project"
+              ownerId={project.user_id}
+              userId={userId}
+              shares={shares}
+              onSharesChanged={onSharesChanged}
+            />
+          )}
         </div>
 
         <div className="modal-footer">
