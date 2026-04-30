@@ -18,7 +18,8 @@ export default function NavBar({
 
   const links = [
     { href: '/dashboard', label: 'Home' },
-    { href: '/tasks', label: 'Personal Tasks' },
+    { href: '/tasks', label: 'Tasks' },
+    { href: '/contacts', label: 'Contacts' },
   ]
 
   useEffect(() => {

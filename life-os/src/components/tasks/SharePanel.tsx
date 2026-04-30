@@ -31,8 +31,8 @@ export default function SharePanel({
   const [removing, setRemoving] = useState<string | null>(null)
 
   const isOwner = userId === ownerId
-  const table = entityType === 'task' ? 'task_shares' : 'project_shares'
-  const idField = entityType === 'task' ? 'task_id' : 'project_id'
+  const table = entityType === 'task' ? 'task_shares' : entityType === 'project' ? 'project_shares' : 'contact_shares'
+  const idField = entityType === 'task' ? 'task_id' : entityType === 'project' ? 'project_id' : 'contact_id'
 
   const handleAdd = async () => {
     const trimmed = email.trim().toLowerCase()
