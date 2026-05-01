@@ -11,18 +11,43 @@ export default async function CalendarPage() {
     { data: profile },
     { data: dbEvents },
     { data: contacts },
+    { data: linkedRaw },
   ] = await Promise.all([
     supabase.from('profiles').select('full_name, avatar_url, date_of_birth').eq('id', user.id).single(),
     (supabase as any).from('calendar_events').select('*').eq('user_id', user.id).order('event_date'),
     supabase.from('contacts').select('id, first_name, last_name, date_of_birth').not('date_of_birth', 'is', null),
+    (supabase as any).from('linked_contacts').select('id, linked_user_id').eq('user_id', user.id),
   ])
+
+  // Fetch profiles for linked users and convert to contact-birthday shape
+  const linkedUserIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
+  const { data: linkedProfiles } = linkedUserIds.length > 0
+    ? await supabase
+        .from('profiles')
+        .select('id, full_name, date_of_birth')
+        .in('id', linkedUserIds)
+        .not('date_of_birth', 'is', null)
+    : { data: [] }
+
+  // Convert linked profiles into the same ContactBirthday shape
+  const linkedAsBirthdays = (linkedProfiles ?? []).map((p: any) => {
+    const nameParts = (p.full_name ?? '').trim().split(' ')
+    return {
+      id: `linked-${p.id}`,
+      first_name: nameParts[0] ?? '',
+      last_name: nameParts.slice(1).join(' ') || nameParts[0] || '',
+      date_of_birth: p.date_of_birth,
+    }
+  })
+
+  const allContacts = [...(contacts ?? []), ...linkedAsBirthdays]
 
   return (
     <CalendarShell
       userId={user.id}
       profile={profile}
       initialDbEvents={dbEvents ?? []}
-      contacts={contacts ?? []}
+      contacts={allContacts}
     />
   )
 }
