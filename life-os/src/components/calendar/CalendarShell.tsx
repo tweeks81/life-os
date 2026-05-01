@@ -32,7 +32,7 @@ export default function CalendarShell({
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [dbEvents, setDbEvents] = useState<RawCalendarEvent[]>(initialDbEvents)
   const [activeTypes, setActiveTypes] = useState<Set<EventType>>(
-    new Set(['birthday', 'anniversary', 'remembrance', 'holiday', 'other'])
+    new Set(['birthday', 'anniversary', 'remembrance', 'holiday', 'other'] as EventType[])
   )
   const [showForm, setShowForm] = useState(false)
   const [editingEvent, setEditingEvent] = useState<RawCalendarEvent | null>(null)
