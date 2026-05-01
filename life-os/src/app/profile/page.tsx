@@ -9,29 +9,63 @@ export default async function ProfilePage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth')
 
-  const [
-    { data: profile },
-    { data: linked },
-    { data: sentRequests },
-    { data: receivedRequests },
-  ] = await Promise.all([
-    supabase.from('profiles').select('*').eq('id', user.id).single(),
-    (supabase as any)
-      .from('linked_contacts')
-      .select('*, profile:profiles!linked_user_id(id, full_name, email, avatar_url, date_of_birth)')
-      .eq('user_id', user.id),
-    (supabase as any)
-      .from('contact_requests')
-      .select('*, to_profile:profiles!to_user_id(full_name, email, avatar_url)')
-      .eq('from_user_id', user.id)
-      .order('created_at', { ascending: false }),
-    (supabase as any)
-      .from('contact_requests')
-      .select('*, from_profile:profiles!from_user_id(full_name, email, avatar_url)')
-      .eq('to_user_id', user.id)
-      .eq('status', 'pending')
-      .order('created_at', { ascending: false }),
-  ])
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
+
+  // Fetch linked contacts with profile data
+  const { data: linkedRaw } = await (supabase as any)
+    .from('linked_contacts')
+    .select('id, user_id, linked_user_id, created_at')
+    .eq('user_id', user.id)
+
+  // Fetch profiles for linked users
+  const linkedUserIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
+  const { data: linkedProfiles } = linkedUserIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, email, avatar_url, date_of_birth').in('id', linkedUserIds)
+    : { data: [] }
+
+  const linked = (linkedRaw ?? []).map((l: any) => ({
+    ...l,
+    profile: (linkedProfiles ?? []).find((p: any) => p.id === l.linked_user_id) ?? null,
+  }))
+
+  // Fetch sent requests with recipient profiles
+  const { data: sentRaw } = await (supabase as any)
+    .from('contact_requests')
+    .select('id, from_user_id, to_user_id, status, created_at')
+    .eq('from_user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  const toUserIds = (sentRaw ?? []).map((r: any) => r.to_user_id)
+  const { data: toProfiles } = toUserIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', toUserIds)
+    : { data: [] }
+
+  const sentRequests = (sentRaw ?? []).map((r: any) => ({
+    ...r,
+    to_profile: (toProfiles ?? []).find((p: any) => p.id === r.to_user_id) ?? null,
+  }))
+
+  // Fetch received pending requests with sender profiles
+  const { data: receivedRaw } = await (supabase as any)
+    .from('contact_requests')
+    .select('id, from_user_id, to_user_id, status, created_at')
+    .eq('to_user_id', user.id)
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+
+  const fromUserIds = (receivedRaw ?? []).map((r: any) => r.from_user_id)
+  const { data: fromProfiles } = fromUserIds.length > 0
+    ? await supabase.from('profiles').select('id, full_name, email, avatar_url').in('id', fromUserIds)
+    : { data: [] }
+
+  const receivedRequests = (receivedRaw ?? []).map((r: any) => ({
+    ...r,
+    from_profile: (fromProfiles ?? []).find((p: any) => p.id === r.from_user_id) ?? null,
+  }))
 
   return (
     <div className="profile-page">
