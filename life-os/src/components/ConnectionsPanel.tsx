@@ -105,18 +105,20 @@ export default function ConnectionsPanel({
     setSearching(false)
   }
 
-  const handleAccept = async (request: ContactRequest) => {
-    // Update request status
+const handleAccept = async (request: ContactRequest) => {
     await (supabase as any)
       .from('contact_requests')
       .update({ status: 'accepted' })
       .eq('id', request.id)
 
-    // Create two-way link
-    await (supabase as any).from('linked_contacts').insert([
-      { user_id: userId, linked_user_id: request.from_user_id, request_id: request.id },
-      { user_id: request.from_user_id, linked_user_id: userId, request_id: request.id },
-    ])
+    // Insert each direction separately so one failure doesn't block the other
+    await (supabase as any)
+      .from('linked_contacts')
+      .insert({ user_id: userId, linked_user_id: request.from_user_id, request_id: request.id })
+
+    await (supabase as any)
+      .from('linked_contacts')
+      .insert({ user_id: request.from_user_id, linked_user_id: userId, request_id: request.id })
 
     await refresh()
   }
