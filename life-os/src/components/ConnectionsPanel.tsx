@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ContactRequest, LinkedContact } from '@/types/linked-contacts'
-import Avatar from '../Avatar'
+import Avatar from './Avatar'
 
 export default function ConnectionsPanel({
   userId,
