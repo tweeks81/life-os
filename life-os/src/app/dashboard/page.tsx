@@ -71,7 +71,7 @@ export default async function DashboardPage() {
         </div>
       </main>
 
-      <style>{\`
+      <style>{`
         .dashboard { min-height: 100vh; background: var(--cream); }
         .dashboard-main { padding-top: 3rem; padding-bottom: 4rem; }
         .dashboard-header { margin-bottom: 2.5rem; }
@@ -81,15 +81,13 @@ export default async function DashboardPage() {
         .modules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 1rem; }
         .module-card { display: flex; align-items: center; gap: 1rem; padding: 1.25rem 1.5rem; text-decoration: none; color: inherit; transition: all 0.2s ease; cursor: pointer; }
         a.module-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--shadow-warm-md); border-color: var(--parchment); }
-        .module-coming-soon { opacity: 0.6; cursor: default; }
         .module-icon { font-size: 1.5rem; flex-shrink: 0; width: 44px; height: 44px; background: var(--cream-dark); border-radius: 10px; display: flex; align-items: center; justify-content: center; }
         .module-content { flex: 1; min-width: 0; }
         .module-title { font-size: 1rem; font-weight: 600; font-family: var(--font-body); margin-bottom: 0.2rem; }
         .module-desc { font-size: 0.8125rem; color: var(--text-muted); }
         .module-arrow { font-size: 1.125rem; color: var(--text-muted); transition: transform 0.2s; }
         a.module-card:hover .module-arrow { transform: translateX(3px); }
-        .module-badge { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: var(--parchment); color: var(--warm-brown); padding: 0.2rem 0.5rem; border-radius: 100px; }
-      \`}</style>
+      `}</style>
     </div>
   )
 }
