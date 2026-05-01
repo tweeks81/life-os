@@ -85,7 +85,6 @@ export default async function ProfilePage() {
             initialLinked={linked ?? []}
             initialSentRequests={sentRequests ?? []}
             initialReceivedRequests={receivedRequests ?? []}
-            onLinksChanged={() => {}}
           />
         </div>
       </main>

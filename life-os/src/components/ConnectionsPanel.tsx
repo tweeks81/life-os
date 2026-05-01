@@ -10,13 +10,11 @@ export default function ConnectionsPanel({
   initialLinked,
   initialSentRequests,
   initialReceivedRequests,
-  onLinksChanged,
 }: {
   userId: string
   initialLinked: LinkedContact[]
   initialSentRequests: ContactRequest[]
   initialReceivedRequests: ContactRequest[]
-  onLinksChanged: () => void
 }) {
   const supabase = createClient()
   const [linked, setLinked] = useState<LinkedContact[]>(initialLinked)
@@ -49,7 +47,6 @@ export default function ConnectionsPanel({
     if (linkedData) setLinked(linkedData)
     if (sentData) setSent(sentData)
     if (receivedData) setReceived(receivedData)
-    onLinksChanged()
   }
 
   const handleSendRequest = async () => {
