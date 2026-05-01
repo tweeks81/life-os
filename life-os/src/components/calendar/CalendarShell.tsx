@@ -125,7 +125,7 @@ export default function CalendarShell({
 
   return (
     <div className="cal-shell">
-      <NavBar profile={profile} />
+<NavBar profile={profile ? { full_name: profile.full_name ?? null, avatar_url: profile.avatar_url ?? null } : null} />
 
       <div className="cal-toolbar">
         {/* Navigation */}
