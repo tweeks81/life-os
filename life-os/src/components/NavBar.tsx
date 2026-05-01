@@ -20,6 +20,7 @@ export default function NavBar({
     { href: '/dashboard', label: 'Home' },
     { href: '/tasks', label: 'Tasks' },
     { href: '/contacts', label: 'Contacts' },
+    { href: '/calendar', label: 'Calendar' },
   ]
 
   useEffect(() => {

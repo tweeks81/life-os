@@ -51,14 +51,14 @@ export default async function DashboardPage() {
             <span className="module-arrow">→</span>
           </Link>
 
-          <div className="module-card card module-coming-soon">
+          <Link href="/calendar" className="module-card card">
             <div className="module-icon">📅</div>
             <div className="module-content">
               <h3 className="module-title">Calendar</h3>
-              <p className="module-desc">Coming soon</p>
+              <p className="module-desc">Birthdays, holidays & key dates</p>
             </div>
-            <span className="module-badge">Soon</span>
-          </div>
+            <span className="module-arrow">→</span>
+          </Link>
 
           <Link href="/contacts" className="module-card card">
             <div className="module-icon">👥</div>
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
         </div>
       </main>
 
-      <style>{`
+      <style>{\`
         .dashboard { min-height: 100vh; background: var(--cream); }
         .dashboard-main { padding-top: 3rem; padding-bottom: 4rem; }
         .dashboard-header { margin-bottom: 2.5rem; }
@@ -89,7 +89,7 @@ export default async function DashboardPage() {
         .module-arrow { font-size: 1.125rem; color: var(--text-muted); transition: transform 0.2s; }
         a.module-card:hover .module-arrow { transform: translateX(3px); }
         .module-badge { font-size: 0.7rem; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; background: var(--parchment); color: var(--warm-brown); padding: 0.2rem 0.5rem; border-radius: 100px; }
-      `}</style>
+      \`}</style>
     </div>
   )
 }
