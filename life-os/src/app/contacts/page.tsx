@@ -7,7 +7,12 @@ export default async function ContactsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth')
 
-  const [{ data: contacts }, { data: profile }, { data: shareRows }] = await Promise.all([
+  const [
+    { data: contacts },
+    { data: profile },
+    { data: shareRows },
+    { data: linked },
+  ] = await Promise.all([
     supabase
       .from('contacts')
       .select('*')
@@ -22,6 +27,10 @@ export default async function ContactsPage() {
       .from('contact_shares')
       .select('id, contact_id, shared_with_email, created_at')
       .eq('owner_id', user.id),
+    (supabase as any)
+      .from('linked_contacts')
+      .select('*, profile:profiles!linked_user_id(id, full_name, email, avatar_url, date_of_birth)')
+      .eq('user_id', user.id),
   ])
 
   const contactShares: Record<string, any[]> = {}
@@ -38,6 +47,7 @@ export default async function ContactsPage() {
     <ContactsShell
       initialContacts={contacts ?? []}
       initialContactShares={contactShares}
+      initialLinked={linked ?? []}
       userId={user.id}
       profile={profile}
     />
