@@ -13,52 +13,46 @@ export default async function CalendarPage() {
     .eq('id', user.id)
     .single()
 
-  // Fetch own events
+  // Own events
   const { data: ownEvents } = await (supabase as any)
     .from('calendar_events')
     .select('*')
     .eq('user_id', user.id)
     .order('event_date')
 
-  // Fetch event IDs shared with this user
+  // Events shared with this user
   const { data: sharedWithMe } = await (supabase as any)
     .from('calendar_event_shares')
     .select('event_id')
-    .or(`shared_with_id.eq.${user.id},shared_with_email.ilike.${userProfile?.email}`)
+    .eq('shared_with_id', user.id)
 
-  // Fetch those shared events
-  const sharedEventIds = (sharedWithMe ?? []).map((r: any) => r.event_id)
+  const sharedEventIds: string[] = (sharedWithMe ?? []).map((r: any) => r.event_id)
+
   const { data: sharedEvents } = sharedEventIds.length > 0
-    ? await (supabase as any)
-        .from('calendar_events')
-        .select('*')
-        .in('id', sharedEventIds)
+    ? await (supabase as any).from('calendar_events').select('*').in('id', sharedEventIds)
     : { data: [] }
 
+  const ownIds = new Set((ownEvents ?? []).map((e: any) => e.id))
   const allDbEvents = [
     ...(ownEvents ?? []),
-    ...(sharedEvents ?? []).filter((se: any) => !(ownEvents ?? []).find((oe: any) => oe.id === se.id)),
+    ...(sharedEvents ?? []).filter((se: any) => !ownIds.has(se.id)),
   ]
 
-  // Fetch contacts with DOBs
+  // Contacts with DOBs
   const { data: contacts } = await supabase
     .from('contacts')
     .select('id, first_name, last_name, date_of_birth')
     .not('date_of_birth', 'is', null)
 
-  // Fetch linked contacts for birthdays
+  // Linked contacts for birthdays
   const { data: linkedRaw } = await (supabase as any)
     .from('linked_contacts')
-    .select('id, linked_user_id')
+    .select('linked_user_id')
     .eq('user_id', user.id)
 
   const linkedUserIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
   const { data: linkedProfiles } = linkedUserIds.length > 0
-    ? await supabase
-        .from('profiles')
-        .select('id, full_name, date_of_birth')
-        .in('id', linkedUserIds)
-        .not('date_of_birth', 'is', null)
+    ? await supabase.from('profiles').select('id, full_name, date_of_birth').in('id', linkedUserIds).not('date_of_birth', 'is', null)
     : { data: [] }
 
   const linkedAsBirthdays = (linkedProfiles ?? []).map((p: any) => {
@@ -71,9 +65,7 @@ export default async function CalendarPage() {
     }
   })
 
-  const allContacts = [...(contacts ?? []), ...linkedAsBirthdays]
-
-  // Fetch shares the user owns (for managing)
+  // Shares owned by this user (for managing)
   const { data: shareRows } = await (supabase as any)
     .from('calendar_event_shares')
     .select('id, event_id, shared_with_email, created_at')
@@ -82,11 +74,7 @@ export default async function CalendarPage() {
   const eventShares: Record<string, any[]> = {}
   for (const row of shareRows ?? []) {
     if (!eventShares[row.event_id]) eventShares[row.event_id] = []
-    eventShares[row.event_id].push({
-      id: row.id,
-      shared_with_email: row.shared_with_email,
-      created_at: row.created_at,
-    })
+    eventShares[row.event_id].push({ id: row.id, shared_with_email: row.shared_with_email, created_at: row.created_at })
   }
 
   return (
@@ -94,8 +82,9 @@ export default async function CalendarPage() {
       userId={user.id}
       profile={userProfile}
       initialDbEvents={allDbEvents}
-      contacts={allContacts}
+      contacts={[...(contacts ?? []), ...linkedAsBirthdays]}
       initialEventShares={eventShares}
+      initialSharedWithMeIds={sharedEventIds}
     />
   )
 }

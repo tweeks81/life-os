@@ -20,12 +20,14 @@ export default function CalendarShell({
   initialDbEvents,
   contacts,
   initialEventShares,
+  initialSharedWithMeIds,
 }: {
   userId: string
   profile: (UserProfile & { avatar_url?: string | null }) | null
   initialDbEvents: RawCalendarEvent[]
   contacts: ContactBirthday[]
   initialEventShares: Record<string, ShareRecord[]>
+  initialSharedWithMeIds: string[]
 }) {
   const supabase = createClient()
   const today = new Date()
@@ -35,11 +37,13 @@ export default function CalendarShell({
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [dbEvents, setDbEvents] = useState<RawCalendarEvent[]>(initialDbEvents)
   const [eventShares, setEventShares] = useState<Record<string, ShareRecord[]>>(initialEventShares)
+  const [sharedWithMeIds, setSharedWithMeIds] = useState<Set<string>>(new Set(initialSharedWithMeIds))
   const [activeTypes, setActiveTypes] = useState<Set<EventType>>(
     new Set(['birthday', 'anniversary', 'remembrance', 'holiday', 'other'] as EventType[])
   )
   const [showForm, setShowForm] = useState(false)
   const [editingEvent, setEditingEvent] = useState<RawCalendarEvent | null>(null)
+  const [editingShares, setEditingShares] = useState<ShareRecord[]>([])
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
   const rangeStart = useMemo(() => new Date(currentDate.getFullYear() - 1, 0, 1), [currentDate])
@@ -63,12 +67,31 @@ export default function CalendarShell({
   }
 
   const refreshEvents = useCallback(async () => {
-    const { data } = await (supabase as any)
+    // Refresh own events
+    const { data: ownData } = await (supabase as any)
       .from('calendar_events')
       .select('*')
       .eq('user_id', userId)
       .order('event_date')
-    if (data) setDbEvents(data)
+
+    // Refresh shared-with-me event IDs
+    const { data: shareData } = await (supabase as any)
+      .from('calendar_event_shares')
+      .select('event_id')
+      .or(`shared_with_id.eq.${userId}`)
+
+    const sharedIds = (shareData ?? []).map((r: any) => r.event_id)
+    const newSharedSet = new Set<string>(sharedIds)
+    setSharedWithMeIds(newSharedSet)
+
+    // Fetch shared events content
+    const { data: sharedData } = sharedIds.length > 0
+      ? await (supabase as any).from('calendar_events').select('*').in('id', sharedIds)
+      : { data: [] }
+
+    const allOwn = ownData ?? []
+    const allShared = (sharedData ?? []).filter((se: any) => !allOwn.find((oe: any) => oe.id === se.id))
+    setDbEvents([...allOwn, ...allShared])
   }, [supabase, userId])
 
   const refreshShares = useCallback(async (eventId: string) => {
@@ -82,28 +105,26 @@ export default function CalendarShell({
 
   const handleEventSaved = useCallback(async (savedId?: string) => {
     await refreshEvents()
+    if (savedId) await refreshShares(savedId)
     setShowForm(false)
     setEditingEvent(null)
-    if (savedId) refreshShares(savedId)
+    setEditingShares([])
   }, [refreshEvents, refreshShares])
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     setSelectedEvent(prev => prev?.id === event.id ? null : event)
-    // Fetch shares if this is a db event owned by the user
-    if (event.sourceId && !event.id.startsWith('holiday-') && !event.id.startsWith('contact-bday-') && !event.id.startsWith('my-birthday-')) {
-      refreshShares(event.sourceId)
-    }
-  }, [refreshShares])
+  }, [])
 
   const handleEditEvent = useCallback((event: CalendarEvent) => {
     if (!event.sourceId) return
     const dbEvent = dbEvents.find(e => e.id === event.sourceId)
     if (dbEvent) {
       setEditingEvent(dbEvent)
+      setEditingShares(eventShares[dbEvent.id] ?? [])
       setShowForm(true)
       setSelectedEvent(null)
     }
-  }, [dbEvents])
+  }, [dbEvents, eventShares])
 
   const handleDeleteEvent = useCallback(async (event: CalendarEvent) => {
     if (!event.sourceId) return
@@ -180,7 +201,7 @@ export default function CalendarShell({
             <button className={`view-btn ${viewMode === 'month' ? 'active' : ''}`} onClick={() => setViewMode('month')}>Month</button>
             <button className={`view-btn ${viewMode === 'week' ? 'active' : ''}`} onClick={() => setViewMode('week')}>Week</button>
           </div>
-          <button className="btn-primary add-btn" onClick={() => { setEditingEvent(null); setShowForm(true) }}>
+          <button className="btn-primary add-btn" onClick={() => { setEditingEvent(null); setEditingShares([]); setShowForm(true) }}>
             + Add event
           </button>
         </div>
@@ -194,11 +215,10 @@ export default function CalendarShell({
             today={today}
             selectedEvent={selectedEvent}
             userId={userId}
-            eventShares={eventShares}
+            sharedEventIds={sharedWithMeIds}
             onEventClick={handleEventClick}
             onEditEvent={handleEditEvent}
             onDeleteEvent={handleDeleteEvent}
-            onSharesChanged={refreshShares}
           />
         ) : (
           <CalendarWeekView
@@ -207,11 +227,10 @@ export default function CalendarShell({
             today={today}
             selectedEvent={selectedEvent}
             userId={userId}
-            eventShares={eventShares}
+            sharedEventIds={sharedWithMeIds}
             onEventClick={handleEventClick}
             onEditEvent={handleEditEvent}
             onDeleteEvent={handleDeleteEvent}
-            onSharesChanged={refreshShares}
           />
         )}
       </div>
@@ -220,8 +239,9 @@ export default function CalendarShell({
         <CalendarEventForm
           userId={userId}
           event={editingEvent}
+          initialShares={editingShares}
           onSaved={handleEventSaved}
-          onClose={() => { setShowForm(false); setEditingEvent(null) }}
+          onClose={() => { setShowForm(false); setEditingEvent(null); setEditingShares([]) }}
         />
       )}
 

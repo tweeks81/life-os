@@ -2,8 +2,6 @@
 
 import { useMemo } from 'react'
 import { CalendarEvent, EVENT_TYPE_COLOURS, isSameDay, DAYS_SHORT } from '@/lib/calendar'
-import { ShareRecord } from '@/components/tasks/SharePanel'
-import SharePanel from '@/components/tasks/SharePanel'
 
 export default function CalendarWeekView({
   currentDate,
@@ -11,22 +9,20 @@ export default function CalendarWeekView({
   today,
   selectedEvent,
   userId,
-  eventShares,
+  sharedEventIds,
   onEventClick,
   onEditEvent,
   onDeleteEvent,
-  onSharesChanged,
 }: {
   currentDate: Date
   events: CalendarEvent[]
   today: Date
   selectedEvent: CalendarEvent | null
   userId: string
-  eventShares: Record<string, ShareRecord[]>
+  sharedEventIds: Set<string>
   onEventClick: (e: CalendarEvent) => void
   onEditEvent: (e: CalendarEvent) => void
   onDeleteEvent: (e: CalendarEvent) => void
-  onSharesChanged: (eventId: string) => void
 }) {
   const weekDays = useMemo(() => {
     const mon = new Date(currentDate)
@@ -51,19 +47,17 @@ export default function CalendarWeekView({
     return map
   }, [events])
 
-  const getDayKey = (d: Date) => `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`
-
   return (
     <div className="week-view">
       <div className="week-grid">
         {weekDays.map((day, i) => {
-          const key = getDayKey(day)
+          const key = `${day.getFullYear()}-${day.getMonth()}-${day.getDate()}`
           const dayEvents = eventsByDay[key] ?? []
           const isToday = isSameDay(day, today)
 
           return (
             <div key={i} className={`week-col ${isToday ? 'today' : ''}`}>
-              <div className={`week-col-header ${isToday ? 'today-header' : ''}`}>
+              <div className="week-col-header">
                 <span className="week-day-name">{DAYS_SHORT[i]}</span>
                 <span className={`week-day-num ${isToday ? 'today-num' : ''}`}>{day.getDate()}</span>
                 <span className="week-month-label">{day.toLocaleDateString('en-GB', { month: 'short' })}</span>
@@ -72,12 +66,10 @@ export default function CalendarWeekView({
               <div className="week-col-events">
                 {dayEvents.map(ev => {
                   const colour = ev.colour ?? EVENT_TYPE_COLOURS[ev.type]
-                  const isCustom = !!ev.sourceId &&
-                    !ev.id.startsWith('holiday-') &&
-                    !ev.id.startsWith('contact-bday-') &&
-                    !ev.id.startsWith('my-birthday-')
+                  const isSharedWithMe = ev.sourceId ? sharedEventIds.has(ev.sourceId) : false
+                  const isOwned = !isSharedWithMe
+                  const isCustom = !!ev.sourceId && !ev.id.startsWith('holiday-') && !ev.id.startsWith('contact-bday-') && !ev.id.startsWith('my-birthday-')
                   const isSelected = selectedEvent?.id === ev.id
-                  const shares = ev.sourceId ? (eventShares[ev.sourceId] ?? []) : []
 
                   return (
                     <div key={ev.id} className="week-event-wrapper">
@@ -86,34 +78,32 @@ export default function CalendarWeekView({
                         style={{ background: colour + '18', borderLeft: `3px solid ${colour}`, color: colour }}
                         onClick={() => onEventClick(ev)}
                       >
-                        <span className="week-event-title">{ev.title}</span>
+                        <div className="week-event-top">
+                          <span className="week-event-title">{ev.title}</span>
+                          {isSharedWithMe && <span className="week-shared-icon">👥</span>}
+                        </div>
                         {ev.notes && <span className="week-event-notes">{ev.notes}</span>}
                       </button>
 
                       {isSelected && (
                         <div className="week-popup">
-                          <p className="popup-title">{ev.title}</p>
+                          <div className="popup-top">
+                            <p className="popup-title">{ev.title}</p>
+                            {isSharedWithMe && <span className="popup-shared-badge">👥 Shared with you</span>}
+                          </div>
                           <p className="popup-date">
                             {ev.date.toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' })}
                           </p>
                           {ev.notes && <p className="popup-notes">{ev.notes}</p>}
                           {isCustom && (
-                            <>
-                              <div className="popup-actions">
-                                <button className="popup-btn" onClick={() => onEditEvent(ev)}>Edit</button>
+                            <div className="popup-actions">
+                              <button className="popup-btn" onClick={() => onEditEvent(ev)}>
+                                {isOwned ? 'Edit & Share' : 'Edit'}
+                              </button>
+                              {isOwned && (
                                 <button className="popup-btn popup-delete" onClick={() => onDeleteEvent(ev)}>Delete</button>
-                              </div>
-                              <div className="popup-share">
-                                <SharePanel
-                                  entityId={ev.sourceId!}
-                                  entityType="calendar_event"
-                                  ownerId={userId}
-                                  userId={userId}
-                                  shares={shares}
-                                  onSharesChanged={() => ev.sourceId && onSharesChanged(ev.sourceId)}
-                                />
-                              </div>
-                            </>
+                              )}
+                            </div>
                           )}
                         </div>
                       )}
@@ -143,10 +133,14 @@ export default function CalendarWeekView({
         .week-event { display: flex; flex-direction: column; gap: 2px; padding: 0.375rem 0.5rem; border-radius: 6px; border: none; width: 100%; text-align: left; cursor: pointer; font-family: var(--font-body); transition: all 0.12s; }
         .week-event:hover { filter: brightness(0.96); }
         .week-event.selected { box-shadow: 0 0 0 2px currentColor; }
-        .week-event-title { font-size: 0.8rem; font-weight: 600; line-height: 1.3; }
+        .week-event-top { display: flex; align-items: center; gap: 0.25rem; }
+        .week-event-title { font-size: 0.8rem; font-weight: 600; line-height: 1.3; flex: 1; }
+        .week-shared-icon { font-size: 0.7rem; flex-shrink: 0; }
         .week-event-notes { font-size: 0.72rem; opacity: 0.75; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-        .week-popup { position: absolute; top: calc(100% + 4px); left: 0; z-index: 100; background: white; border: 1px solid var(--border-light); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 0.75rem; min-width: 240px; max-width: 300px; animation: fadeUp 0.15s ease; }
-        .popup-title { font-size: 0.875rem; font-weight: 600; color: var(--deep-brown); margin-bottom: 0.25rem; }
+        .week-popup { position: absolute; top: calc(100% + 4px); left: 0; z-index: 100; background: white; border: 1px solid var(--border-light); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,0.12); padding: 0.75rem; min-width: 220px; max-width: 280px; animation: fadeUp 0.15s ease; }
+        .popup-top { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.25rem; }
+        .popup-title { font-size: 0.875rem; font-weight: 600; color: var(--deep-brown); }
+        .popup-shared-badge { font-size: 0.7rem; font-weight: 600; background: #eff6ff; color: #2563eb; padding: 0.15rem 0.4rem; border-radius: 4px; white-space: nowrap; flex-shrink: 0; }
         .popup-date { font-size: 0.75rem; color: var(--text-muted); }
         .popup-notes { font-size: 0.8rem; color: var(--text-secondary); line-height: 1.5; margin-top: 0.25rem; padding-top: 0.25rem; border-top: 1px solid var(--border-light); }
         .popup-actions { display: flex; gap: 0.5rem; margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-light); }
@@ -154,7 +148,6 @@ export default function CalendarWeekView({
         .popup-btn:hover { background: var(--cream-dark); color: var(--deep-brown); }
         .popup-delete { color: #dc2626; border-color: #fecaca; }
         .popup-delete:hover { background: #fef2f2; }
-        .popup-share { margin-top: 0.5rem; padding-top: 0.5rem; border-top: 1px solid var(--border-light); }
       `}</style>
     </div>
   )
