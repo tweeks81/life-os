@@ -52,7 +52,7 @@ export default function ConnectionsPanel({
       ...(receivedRaw ?? []).map((r: any) => r.from_user_id),
     ].filter(Boolean)
 
-    const uniqueIds = [...new Set(allUserIds)]
+    const uniqueIds = allUserIds.filter((id, index, self) => self.indexOf(id) === index)
     const { data: profiles } = uniqueIds.length > 0
       ? await supabase.from('profiles').select('id, full_name, email, avatar_url, date_of_birth').in('id', uniqueIds)
       : { data: [] }
