@@ -1,0 +1,59 @@
+export type PropertyType =
+  | 'detached_house'
+  | 'semi_detached_house'
+  | 'terraced_house'
+  | 'bungalow'
+  | 'flat'
+  | 'maisonette'
+  | 'cottage'
+  | 'farmhouse'
+  | 'other'
+
+export interface Property {
+  id: string
+  user_id: string
+  name: string
+  property_type: PropertyType
+  year_built: number | null
+  is_primary_residence: boolean
+  photo_url: string | null
+  address_line1: string | null
+  address_line2: string | null
+  address_town: string | null
+  address_city: string | null
+  address_postcode: string | null
+  address_country: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const PROPERTY_TYPE_LABELS: Record<PropertyType, string> = {
+  detached_house: 'Detached house',
+  semi_detached_house: 'Semi-detached house',
+  terraced_house: 'Terraced house',
+  bungalow: 'Bungalow',
+  flat: 'Flat',
+  maisonette: 'Maisonette',
+  cottage: 'Cottage',
+  farmhouse: 'Farmhouse',
+  other: 'Other',
+}
+
+export const PROPERTY_TYPE_ICONS: Record<PropertyType, string> = {
+  detached_house: '🏠',
+  semi_detached_house: '🏠',
+  terraced_house: '🏘',
+  bungalow: '🏡',
+  flat: '🏢',
+  maisonette: '🏢',
+  cottage: '🏡',
+  farmhouse: '🏚',
+  other: '🏗',
+}
+
+export function formatAddress(p: Property): string {
+  return [p.address_line1, p.address_line2, p.address_town, p.address_city, p.address_postcode]
+    .filter(Boolean)
+    .join(', ')
+}

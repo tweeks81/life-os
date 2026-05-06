@@ -322,3 +322,30 @@
     max-height: 160px !important;
   }
 }
+
+/* ── Properties mobile ── */
+@media (max-width: 768px) {
+  .properties-shell {
+    height: 100dvh !important;
+  }
+
+  .properties-body {
+    flex-direction: column !important;
+  }
+
+  .prop-list {
+    width: 100% !important;
+    flex: 1 !important;
+    border-right: none !important;
+  }
+
+  .properties-body .detail-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    max-width: 100% !important;
+    border-left: none !important;
+    z-index: 200 !important;
+    animation: slideUpMobile 0.28s ease !important;
+    padding-bottom: 64px !important;
+  }
+}

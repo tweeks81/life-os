@@ -24,7 +24,7 @@ export default function SharePanel({
   onSharesChanged,
 }: {
   entityId: string
-  entityType: 'task' | 'project' | 'contact' | 'calendar_event'
+  entityType: 'task' | 'project' | 'contact' | 'calendar_event' | 'property'
   ownerId: string
   userId: string
   shares: ShareRecord[]
@@ -43,11 +43,13 @@ export default function SharePanel({
   const table = entityType === 'task' ? 'task_shares'
     : entityType === 'project' ? 'project_shares'
     : entityType === 'contact' ? 'contact_shares'
-    : 'calendar_event_shares'
+    : entityType === 'calendar_event' ? 'calendar_event_shares'
+    : 'property_shares'
   const idField = entityType === 'task' ? 'task_id'
     : entityType === 'project' ? 'project_id'
     : entityType === 'contact' ? 'contact_id'
-    : 'event_id'
+    : entityType === 'calendar_event' ? 'event_id'
+    : 'property_id'
 
   // Fetch linked people using separate queries (avoids RLS join issues)
   useEffect(() => {
