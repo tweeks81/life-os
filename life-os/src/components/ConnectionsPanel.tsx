@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { ContactRequest, LinkedContact } from '@/types/linked-contacts'
 import Avatar from './Avatar'
+import { useRouter } from 'next/navigation'
 
 export default function ConnectionsPanel({
   userId,
@@ -17,6 +18,7 @@ export default function ConnectionsPanel({
   initialReceivedRequests: ContactRequest[]
 }) {
   const supabase = createClient()
+  const router = useRouter()
   const [linked, setLinked] = useState<LinkedContact[]>(initialLinked)
   const [sent, setSent] = useState<ContactRequest[]>(initialSentRequests)
   const [received, setReceived] = useState<ContactRequest[]>(initialReceivedRequests)
@@ -47,6 +49,7 @@ export default function ConnectionsPanel({
     if (linkedData) setLinked(linkedData)
     if (sentData) setSent(sentData)
     if (receivedData) setReceived(receivedData)
+    router.refresh()
   }
 
   const handleSendRequest = async () => {
