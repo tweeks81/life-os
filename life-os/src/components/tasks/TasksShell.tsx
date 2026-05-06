@@ -10,6 +10,7 @@ import TaskDetail from './TaskDetail'
 import TaskForm from './TaskForm'
 import ProjectForm from './ProjectForm'
 import NavBar from '../NavBar'
+import MobileProjectsStrip from './MobileProjectsStrip'
 
 type FilterStatus = 'active' | 'completed' | 'all'
 
@@ -162,22 +163,30 @@ export default function TasksShell({
           totalActiveTasks={stats.active}
         />
 
-        <TasksList
-          tasks={tasks}
-          projects={projectsWithCounts}
-          userId={userId}
-          selectedProjectId={selectedProjectId}
-          selectedTaskId={selectedTask?.id ?? null}
-          filterStatus={filterStatus}
-          filterContext={filterContext}
-          filterPriority={filterPriority}
-          stats={stats}
-          onSelectTask={openTask}
-          onFilterStatus={setFilterStatus}
-          onFilterContext={setFilterContext}
-          onFilterPriority={setFilterPriority}
-          onNewTask={() => setShowTaskForm(true)}
-        />
+        <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minWidth: 0, overflow: 'hidden' }}>
+          <MobileProjectsStrip
+            projects={projectsWithCounts}
+            selectedProjectId={selectedProjectId}
+            onSelectProject={setSelectedProjectId}
+          />
+          <TasksList
+            tasks={tasks}
+            projects={projectsWithCounts}
+            userId={userId}
+            selectedProjectId={selectedProjectId}
+            selectedTaskId={selectedTask?.id ?? null}
+            filterStatus={filterStatus}
+            filterContext={filterContext}
+            filterPriority={filterPriority}
+            stats={stats}
+            onSelectTask={openTask}
+            onFilterStatus={setFilterStatus}
+            onFilterContext={setFilterContext}
+            onFilterPriority={setFilterPriority}
+            onNewTask={() => setShowTaskForm(true)}
+          />
+          <div className="mobile-bottom-spacer" />
+        </div>
 
         {selectedTask && (
           <TaskDetail

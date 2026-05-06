@@ -80,7 +80,8 @@ export default function ContactDetail({
               <button className="detail-delete-btn" onClick={handleDelete} title="Delete">🗑</button>
             </>
           )}
-          <button className="detail-close" onClick={onClose}>✕</button>
+          <button className="detail-close mobile-only" onClick={onClose} style={{display:'none', fontSize:'0.875rem', padding:'0 0.5rem', width:'auto', borderRadius:'8px'}}>← Back</button>
+          <button className="detail-close desktop-only" onClick={onClose}>✕</button>
         </div>
       </div>
 

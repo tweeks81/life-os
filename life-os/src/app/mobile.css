@@ -1,0 +1,324 @@
+/* ============================================================
+   Life OS — Mobile Responsive Styles
+   Applied globally via globals.css import
+   All rules scoped to max-width: 768px
+   ============================================================ */
+
+@media (max-width: 768px) {
+
+  /* ── Bottom nav placeholder so content isn't hidden behind it ── */
+  .mobile-bottom-spacer {
+    height: 64px;
+  }
+
+  /* ── Top navbar on mobile ── */
+  .navbar .navbar-inner {
+    padding: 0 1rem;
+  }
+
+  /* Hide desktop nav links on mobile - bottom nav replaces them */
+  .navbar .nav-links {
+    display: none;
+  }
+
+  /* ── Dashboard ── */
+  .dashboard-main.container {
+    padding-top: 1.5rem;
+    padding-left: 1rem;
+    padding-right: 1rem;
+  }
+
+  .dashboard-name {
+    font-size: 1.875rem !important;
+  }
+
+  .modules-grid {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 0.75rem !important;
+  }
+
+  .module-card {
+    flex-direction: column !important;
+    align-items: flex-start !important;
+    padding: 1rem !important;
+    gap: 0.625rem !important;
+  }
+
+  .module-arrow {
+    display: none !important;
+  }
+
+  /* ── Tasks shell ── */
+  .tasks-shell {
+    height: 100dvh !important;
+  }
+
+  .tasks-body {
+    flex-direction: column !important;
+    overflow: hidden !important;
+    position: relative !important;
+  }
+
+  /* Sidebar hidden on mobile - replaced by filter strip */
+  .tasks-body > aside {
+    display: none !important;
+  }
+
+  /* Task list takes full width */
+  .tasks-list {
+    width: 100% !important;
+    flex: 1 !important;
+  }
+
+  /* Stats bar compact */
+  .stats-bar {
+    padding: 0.5rem 1rem !important;
+    gap: 0 !important;
+    overflow-x: auto !important;
+  }
+
+  .stat-item {
+    padding: 0 0.625rem !important;
+    flex-shrink: 0 !important;
+  }
+
+  .stat-value {
+    font-size: 1.1rem !important;
+  }
+
+  .stat-label {
+    font-size: 0.6rem !important;
+  }
+
+  .new-task-btn {
+    font-size: 0.8rem !important;
+    padding: 0.4rem 0.75rem !important;
+  }
+
+  .filter-bar {
+    padding: 0.5rem 1rem !important;
+    gap: 0.5rem !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  .filter-selects {
+    display: none !important;
+  }
+
+  .tasks-scroll {
+    padding: 0.75rem 1rem !important;
+  }
+
+  /* Task detail panel - full screen slide-in on mobile */
+  .detail-overlay {
+    position: fixed !important;
+    inset: 0 !important;
+    width: 100% !important;
+    z-index: 200 !important;
+    animation: slideUpMobile 0.28s ease !important;
+    padding-bottom: 64px !important;
+  }
+
+  .detail-panel {
+    border-left: none !important;
+    box-shadow: 0 -4px 24px rgba(0,0,0,0.12) !important;
+  }
+
+  /* Task/Project modals - full screen bottom sheet */
+  .modal-backdrop {
+    align-items: flex-end !important;
+    padding: 0 !important;
+  }
+
+  .modal-box {
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: 92dvh !important;
+    border-radius: 20px 20px 0 0 !important;
+    animation: slideUpMobile 0.28s ease !important;
+  }
+
+  /* ── Contacts shell ── */
+  .contacts-shell {
+    height: 100dvh !important;
+  }
+
+  .contacts-body {
+    flex-direction: column !important;
+  }
+
+  /* Contacts list - full width */
+  .contacts-list {
+    width: 100% !important;
+    flex: 1 !important;
+    border-right: none !important;
+  }
+
+  /* Contact detail - full screen */
+  .contacts-body .detail-panel {
+    position: fixed !important;
+    inset: 0 !important;
+    max-width: 100% !important;
+    border-left: none !important;
+    z-index: 200 !important;
+    animation: slideUpMobile 0.28s ease !important;
+    padding-bottom: 64px !important;
+  }
+
+  /* ── Calendar shell ── */
+  .cal-shell {
+    height: 100dvh !important;
+  }
+
+  .cal-toolbar {
+    padding: 0.5rem 0.875rem !important;
+    gap: 0.5rem !important;
+    flex-wrap: nowrap !important;
+    overflow-x: auto !important;
+  }
+
+  .cal-filters {
+    display: none !important;
+  }
+
+  /* ── Profile ── */
+  .profile-main.container {
+    padding-left: 1rem !important;
+    padding-right: 1rem !important;
+    padding-top: 1.5rem !important;
+  }
+
+  /* ── Animations ── */
+  @keyframes slideUpMobile {
+    from {
+      transform: translateY(100%);
+      opacity: 0;
+    }
+    to {
+      transform: translateY(0);
+      opacity: 1;
+    }
+  }
+
+  /* ── Mobile filter drawer for tasks ── */
+  .mobile-filter-drawer {
+    display: flex !important;
+  }
+
+  /* ── Mobile projects strip ── */
+  .mobile-projects-strip {
+    display: flex !important;
+  }
+
+  /* ── Hide desktop-only elements ── */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* ── Show mobile-only elements ── */
+  .mobile-only {
+    display: flex !important;
+  }
+}
+
+/* Desktop: hide mobile-only elements */
+@media (min-width: 769px) {
+  .mobile-only {
+    display: none !important;
+  }
+
+  .mobile-projects-strip {
+    display: none !important;
+  }
+
+  .mobile-bottom-nav {
+    display: none !important;
+  }
+}
+
+/* ── Additional mobile-specific overrides ── */
+@media (max-width: 768px) {
+
+  /* Show mobile back buttons */
+  .mobile-only {
+    display: flex !important;
+  }
+
+  /* Hide desktop close X on mobile */
+  .desktop-only {
+    display: none !important;
+  }
+
+  /* Make back button look right */
+  .detail-close.mobile-only {
+    width: auto !important;
+    padding: 0 0.75rem !important;
+    font-size: 0.875rem !important;
+    color: var(--terracotta) !important;
+    border-color: transparent !important;
+    background: none !important;
+    gap: 0.25rem !important;
+  }
+
+  /* Calendar mobile: make toolbar single line */
+  .cal-toolbar {
+    gap: 0.5rem !important;
+  }
+
+  .cal-heading {
+    min-width: 0 !important;
+    font-size: 0.9375rem !important;
+  }
+
+  .cal-actions {
+    flex-shrink: 0 !important;
+  }
+
+  /* Taller tap targets on mobile task cards */
+  .task-card {
+    min-height: 60px !important;
+  }
+
+  /* Profile page bottom spacer */
+  .profile-page .profile-main {
+    padding-bottom: 5rem !important;
+  }
+
+  /* Auth page - full height on mobile */
+  .auth-page {
+    padding: 1.5rem 1rem !important;
+    align-items: flex-start !important;
+    padding-top: 3rem !important;
+  }
+
+  .auth-container {
+    max-width: 100% !important;
+  }
+
+  /* Calendar month cells - slightly taller on mobile */
+  .month-week {
+    min-height: 80px !important;
+  }
+
+  .month-cell {
+    min-height: 80px !important;
+    padding: 0.25rem !important;
+  }
+
+  /* Contact list full width on mobile */
+  .contacts-list {
+    min-height: 0 !important;
+    flex: 1 !important;
+  }
+
+  /* Make connection panel scroll nicely */
+  .connections-panel {
+    padding: 1.25rem 1rem !important;
+  }
+
+  /* Ensure share panel picker doesn't overflow */
+  .picker-list {
+    max-height: 160px !important;
+  }
+}

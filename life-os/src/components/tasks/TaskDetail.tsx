@@ -156,7 +156,8 @@ export default function TaskDetail({
                 Edit
               </button>
             )}
-            <button className="detail-close" onClick={onClose}>✕</button>
+            <button className="detail-close mobile-only" onClick={onClose} style={{display:'none'}}>← Back</button>
+            <button className="detail-close desktop-only" onClick={onClose}>✕</button>
           </div>
         </div>
 

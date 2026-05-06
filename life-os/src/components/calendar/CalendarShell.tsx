@@ -233,6 +233,7 @@ export default function CalendarShell({
             onDeleteEvent={handleDeleteEvent}
           />
         )}
+        <div className="mobile-bottom-spacer" />
       </div>
 
       {showForm && (

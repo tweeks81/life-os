@@ -189,7 +189,8 @@ export default function ContactsShell({
             onClose={() => setSelectedEntry(null)}
           />
         ) : (
-          <div className="contacts-empty-state">
+          <div className="mobile-bottom-spacer" />
+        <div className="contacts-empty-state">
             <p className="empty-icon">👤</p>
             <p className="empty-title">Select a contact</p>
             <p className="empty-desc">Choose a contact from the list, or add a new one.</p>
@@ -210,6 +211,7 @@ export default function ContactsShell({
         .contacts-shell { height: 100vh; display: flex; flex-direction: column; background: var(--cream); overflow: hidden; }
         .contacts-body { flex: 1; display: flex; overflow: hidden; position: relative; }
         .contacts-empty-state { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.5rem; color: var(--text-muted); }
+        .mobile-bottom-spacer { height: 64px; flex-shrink: 0; }
         .empty-icon { font-size: 3rem; margin-bottom: 0.5rem; }
         .empty-title { font-family: var(--font-display); font-size: 1.25rem; font-weight: 600; color: var(--deep-brown); }
         .empty-desc { font-size: 0.9rem; }
