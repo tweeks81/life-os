@@ -22,6 +22,7 @@ export default function NavBar({
     { href: '/calendar', label: 'Calendar' },
     { href: '/contacts', label: 'Contacts' },
     { href: '/properties', label: 'Properties' },
+    { href: '/vehicles', label: 'Vehicles' },
   ]
 
   useEffect(() => {

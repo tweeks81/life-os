@@ -349,3 +349,19 @@
     padding-bottom: 64px !important;
   }
 }
+
+/* ── Vehicles mobile ── */
+@media (max-width: 768px) {
+  .vehicles-shell { height: 100dvh !important; }
+  .vehicles-body { flex-direction: column !important; }
+  .veh-list { width: 100% !important; flex: 1 !important; border-right: none !important; }
+  .vehicles-body .veh-detail {
+    position: fixed !important;
+    inset: 0 !important;
+    max-width: 100% !important;
+    border-left: none !important;
+    z-index: 200 !important;
+    animation: slideUpMobile 0.28s ease !important;
+    padding-bottom: 64px !important;
+  }
+}
