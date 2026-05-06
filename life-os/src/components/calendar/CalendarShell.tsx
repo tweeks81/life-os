@@ -6,6 +6,7 @@ import {
   CalendarEvent, EventType, RawCalendarEvent, ContactBirthday, UserProfile,
   generateEventsForRange, EVENT_TYPE_LABELS, EVENT_TYPE_COLOURS
 } from '@/lib/calendar'
+import { ShareRecord } from '@/components/tasks/SharePanel'
 import NavBar from '../NavBar'
 import CalendarMonthView from './CalendarMonthView'
 import CalendarWeekView from './CalendarWeekView'
@@ -18,11 +19,13 @@ export default function CalendarShell({
   profile,
   initialDbEvents,
   contacts,
+  initialEventShares,
 }: {
   userId: string
   profile: (UserProfile & { avatar_url?: string | null }) | null
   initialDbEvents: RawCalendarEvent[]
   contacts: ContactBirthday[]
+  initialEventShares: Record<string, ShareRecord[]>
 }) {
   const supabase = createClient()
   const today = new Date()
@@ -31,6 +34,7 @@ export default function CalendarShell({
   const [viewMode, setViewMode] = useState<ViewMode>('month')
   const [currentDate, setCurrentDate] = useState(new Date(today.getFullYear(), today.getMonth(), 1))
   const [dbEvents, setDbEvents] = useState<RawCalendarEvent[]>(initialDbEvents)
+  const [eventShares, setEventShares] = useState<Record<string, ShareRecord[]>>(initialEventShares)
   const [activeTypes, setActiveTypes] = useState<Set<EventType>>(
     new Set(['birthday', 'anniversary', 'remembrance', 'holiday', 'other'] as EventType[])
   )
@@ -38,16 +42,8 @@ export default function CalendarShell({
   const [editingEvent, setEditingEvent] = useState<RawCalendarEvent | null>(null)
   const [selectedEvent, setSelectedEvent] = useState<CalendarEvent | null>(null)
 
-  // Generate a wide range of events (±1 year from current view)
-  const rangeStart = useMemo(() => {
-    const d = new Date(currentDate.getFullYear() - 1, 0, 1)
-    return d
-  }, [currentDate])
-
-  const rangeEnd = useMemo(() => {
-    const d = new Date(currentDate.getFullYear() + 1, 11, 31)
-    return d
-  }, [currentDate])
+  const rangeStart = useMemo(() => new Date(currentDate.getFullYear() - 1, 0, 1), [currentDate])
+  const rangeEnd = useMemo(() => new Date(currentDate.getFullYear() + 1, 11, 31), [currentDate])
 
   const allEvents = useMemo(() => {
     return generateEventsForRange(rangeStart, rangeEnd, dbEvents, contacts, profile)
@@ -75,15 +71,29 @@ export default function CalendarShell({
     if (data) setDbEvents(data)
   }, [supabase, userId])
 
-  const handleEventSaved = useCallback(async () => {
+  const refreshShares = useCallback(async (eventId: string) => {
+    const { data } = await (supabase as any)
+      .from('calendar_event_shares')
+      .select('id, shared_with_email, created_at')
+      .eq('event_id', eventId)
+      .eq('owner_id', userId)
+    setEventShares(prev => ({ ...prev, [eventId]: data ?? [] }))
+  }, [supabase, userId])
+
+  const handleEventSaved = useCallback(async (savedId?: string) => {
     await refreshEvents()
     setShowForm(false)
     setEditingEvent(null)
-  }, [refreshEvents])
+    if (savedId) refreshShares(savedId)
+  }, [refreshEvents, refreshShares])
 
   const handleEventClick = useCallback((event: CalendarEvent) => {
     setSelectedEvent(prev => prev?.id === event.id ? null : event)
-  }, [])
+    // Fetch shares if this is a db event owned by the user
+    if (event.sourceId && !event.id.startsWith('holiday-') && !event.id.startsWith('contact-bday-') && !event.id.startsWith('my-birthday-')) {
+      refreshShares(event.sourceId)
+    }
+  }, [refreshShares])
 
   const handleEditEvent = useCallback((event: CalendarEvent) => {
     if (!event.sourceId) return
@@ -125,10 +135,9 @@ export default function CalendarShell({
 
   return (
     <div className="cal-shell">
-<NavBar profile={profile ? { full_name: profile.full_name ?? null, avatar_url: profile.avatar_url ?? null } : null} />
+      <NavBar profile={profile ? { full_name: profile.full_name ?? null, avatar_url: profile.avatar_url ?? null } : null} />
 
       <div className="cal-toolbar">
-        {/* Navigation */}
         <div className="cal-nav">
           <button className="cal-nav-btn" onClick={() => navigate(-1)}>‹</button>
           <button className="cal-today-btn" onClick={goToToday}>Today</button>
@@ -149,7 +158,6 @@ export default function CalendarShell({
           </h2>
         </div>
 
-        {/* Filters */}
         <div className="cal-filters">
           {allTypes.map(type => (
             <button
@@ -167,17 +175,10 @@ export default function CalendarShell({
           ))}
         </div>
 
-        {/* View toggle + add */}
         <div className="cal-actions">
           <div className="view-toggle">
-            <button
-              className={`view-btn ${viewMode === 'month' ? 'active' : ''}`}
-              onClick={() => setViewMode('month')}
-            >Month</button>
-            <button
-              className={`view-btn ${viewMode === 'week' ? 'active' : ''}`}
-              onClick={() => setViewMode('week')}
-            >Week</button>
+            <button className={`view-btn ${viewMode === 'month' ? 'active' : ''}`} onClick={() => setViewMode('month')}>Month</button>
+            <button className={`view-btn ${viewMode === 'week' ? 'active' : ''}`} onClick={() => setViewMode('week')}>Week</button>
           </div>
           <button className="btn-primary add-btn" onClick={() => { setEditingEvent(null); setShowForm(true) }}>
             + Add event
@@ -192,9 +193,12 @@ export default function CalendarShell({
             events={filteredEvents}
             today={today}
             selectedEvent={selectedEvent}
+            userId={userId}
+            eventShares={eventShares}
             onEventClick={handleEventClick}
             onEditEvent={handleEditEvent}
             onDeleteEvent={handleDeleteEvent}
+            onSharesChanged={refreshShares}
           />
         ) : (
           <CalendarWeekView
@@ -202,9 +206,12 @@ export default function CalendarShell({
             events={filteredEvents}
             today={today}
             selectedEvent={selectedEvent}
+            userId={userId}
+            eventShares={eventShares}
             onEventClick={handleEventClick}
             onEditEvent={handleEditEvent}
             onDeleteEvent={handleDeleteEvent}
+            onSharesChanged={refreshShares}
           />
         )}
       </div>
@@ -219,126 +226,23 @@ export default function CalendarShell({
       )}
 
       <style>{`
-        .cal-shell {
-          height: 100vh;
-          display: flex;
-          flex-direction: column;
-          background: var(--cream);
-          overflow: hidden;
-        }
-        .cal-toolbar {
-          display: flex;
-          align-items: center;
-          gap: 1rem;
-          padding: 0.625rem 1.25rem;
-          background: white;
-          border-bottom: 1px solid var(--border-light);
-          flex-shrink: 0;
-          flex-wrap: wrap;
-        }
-        .cal-nav {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-        }
-        .cal-nav-btn {
-          width: 30px;
-          height: 30px;
-          border-radius: 6px;
-          border: 1px solid var(--border);
-          background: none;
-          cursor: pointer;
-          font-size: 1.125rem;
-          color: var(--text-secondary);
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          transition: all 0.15s;
-          line-height: 1;
-        }
+        .cal-shell { height: 100vh; display: flex; flex-direction: column; background: var(--cream); overflow: hidden; }
+        .cal-toolbar { display: flex; align-items: center; gap: 1rem; padding: 0.625rem 1.25rem; background: white; border-bottom: 1px solid var(--border-light); flex-shrink: 0; flex-wrap: wrap; }
+        .cal-nav { display: flex; align-items: center; gap: 0.375rem; }
+        .cal-nav-btn { width: 30px; height: 30px; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; font-size: 1.125rem; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; transition: all 0.15s; line-height: 1; }
         .cal-nav-btn:hover { background: var(--cream-dark); color: var(--deep-brown); }
-        .cal-today-btn {
-          font-size: 0.8125rem;
-          font-weight: 500;
-          font-family: var(--font-body);
-          padding: 0.3rem 0.75rem;
-          border-radius: 6px;
-          border: 1px solid var(--border);
-          background: none;
-          cursor: pointer;
-          color: var(--text-secondary);
-          transition: all 0.15s;
-        }
+        .cal-today-btn { font-size: 0.8125rem; font-weight: 500; font-family: var(--font-body); padding: 0.3rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
         .cal-today-btn:hover { background: var(--cream-dark); color: var(--deep-brown); }
-        .cal-heading {
-          font-size: 1rem;
-          font-weight: 600;
-          font-family: var(--font-body);
-          color: var(--deep-brown);
-          white-space: nowrap;
-          margin-left: 0.25rem;
-          min-width: 180px;
-        }
-        .cal-filters {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          flex: 1;
-          flex-wrap: wrap;
-        }
-        .filter-chip {
-          font-size: 0.75rem;
-          font-weight: 500;
-          font-family: var(--font-body);
-          padding: 0.25rem 0.625rem;
-          border-radius: 100px;
-          border: 1.5px solid var(--border);
-          background: none;
-          color: var(--text-muted);
-          cursor: pointer;
-          transition: all 0.15s;
-          white-space: nowrap;
-        }
+        .cal-heading { font-size: 1rem; font-weight: 600; font-family: var(--font-body); color: var(--deep-brown); white-space: nowrap; margin-left: 0.25rem; min-width: 180px; }
+        .cal-filters { display: flex; align-items: center; gap: 0.375rem; flex: 1; flex-wrap: wrap; }
+        .filter-chip { font-size: 0.75rem; font-weight: 500; font-family: var(--font-body); padding: 0.25rem 0.625rem; border-radius: 100px; border: 1.5px solid var(--border); background: none; color: var(--text-muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
         .filter-chip:hover { border-color: var(--warm-brown); color: var(--deep-brown); }
-        .cal-actions {
-          display: flex;
-          align-items: center;
-          gap: 0.5rem;
-          flex-shrink: 0;
-        }
-        .view-toggle {
-          display: flex;
-          background: var(--parchment);
-          border-radius: 8px;
-          padding: 2px;
-        }
-        .view-btn {
-          font-size: 0.8125rem;
-          font-weight: 500;
-          font-family: var(--font-body);
-          padding: 0.3rem 0.75rem;
-          border-radius: 6px;
-          border: none;
-          background: none;
-          cursor: pointer;
-          color: var(--text-secondary);
-          transition: all 0.15s;
-        }
-        .view-btn.active {
-          background: white;
-          color: var(--deep-brown);
-          box-shadow: 0 1px 3px var(--shadow-warm);
-        }
-        .add-btn {
-          font-size: 0.8125rem;
-          padding: 0.4rem 0.875rem;
-        }
-        .cal-body {
-          flex: 1;
-          overflow: hidden;
-          display: flex;
-          flex-direction: column;
-        }
+        .cal-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+        .view-toggle { display: flex; background: var(--parchment); border-radius: 8px; padding: 2px; }
+        .view-btn { font-size: 0.8125rem; font-weight: 500; font-family: var(--font-body); padding: 0.3rem 0.75rem; border-radius: 6px; border: none; background: none; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
+        .view-btn.active { background: white; color: var(--deep-brown); box-shadow: 0 1px 3px var(--shadow-warm); }
+        .add-btn { font-size: 0.8125rem; padding: 0.4rem 0.875rem; }
+        .cal-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
       `}</style>
     </div>
   )
