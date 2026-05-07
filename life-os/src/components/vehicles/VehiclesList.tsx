@@ -9,6 +9,11 @@ export default function VehiclesList({
   taxedIds,
   insuredIds,
   motIds,
+  taxWarnIds,
+  insWarnIds,
+  motWarnIds,
+  serviceOverdueIds,
+  serviceDueSoonIds,
   shares,
   showSold,
   onSelect,
@@ -21,6 +26,11 @@ export default function VehiclesList({
   taxedIds: Set<string>
   insuredIds: Set<string>
   motIds: Set<string>
+  taxWarnIds: Set<string>
+  insWarnIds: Set<string>
+  motWarnIds: Set<string>
+  serviceOverdueIds: Set<string>
+  serviceDueSoonIds: Set<string>
   shares: Record<string, any[]>
   showSold: boolean
   onSelect: (v: Vehicle) => void
@@ -51,12 +61,20 @@ export default function VehiclesList({
             const isTaxed = taxedIds.has(v.id)
             const isInsured = insuredIds.has(v.id)
             const hasMot = motIds.has(v.id)
+            const taxWarn = taxWarnIds.has(v.id)
+            const insWarn = insWarnIds.has(v.id)
+            const motWarn = motWarnIds.has(v.id)
+            const serviceOverdue = serviceOverdueIds.has(v.id)
+            const serviceSoon = serviceDueSoonIds.has(v.id)
             const isShared = (shares[v.id] ?? []).length > 0
-            const hasWarning = !sold && (!isTaxed || !isInsured || !hasMot)
+
+            const hasCritical = !sold && (!isTaxed || !isInsured || !hasMot || serviceOverdue)
+            const hasWarning = !sold && !hasCritical && (taxWarn || insWarn || motWarn || serviceSoon)
+
             return (
               <button
                 key={v.id}
-                className={`veh-row ${selectedId === v.id ? 'selected' : ''} ${hasWarning ? 'untaxed' : ''} ${sold ? 'sold' : ''}`}
+                className={`veh-row ${selectedId === v.id ? 'selected' : ''} ${hasCritical ? 'critical' : hasWarning ? 'expiring' : ''} ${sold ? 'sold' : ''}`}
                 onClick={() => onSelect(v)}
               >
                 <div className="veh-icon">{VEHICLE_TYPE_ICONS[v.vehicle_type]}</div>
@@ -71,9 +89,14 @@ export default function VehiclesList({
                     {[v.make, v.model].filter(Boolean).join(' ') || VEHICLE_TYPE_LABELS[v.vehicle_type]}
                   </span>
                   {v.reg_number && <span className="veh-reg">{v.reg_number.toUpperCase()}</span>}
-                  {!sold && !isTaxed && <span className="untaxed-badge">⚠ No valid tax</span>}
-                  {!sold && !isInsured && <span className="untaxed-badge">⚠ No valid insurance</span>}
-                  {!sold && !hasMot && <span className="untaxed-badge">⚠ No valid MOT</span>}
+                  {!sold && !isTaxed && <span className="alert-badge critical-badge">⚠ No valid tax</span>}
+                  {!sold && isTaxed && taxWarn && <span className="alert-badge warn-badge">⚠ Tax expiring soon</span>}
+                  {!sold && !isInsured && <span className="alert-badge critical-badge">⚠ No valid insurance</span>}
+                  {!sold && isInsured && insWarn && <span className="alert-badge warn-badge">⚠ Insurance expiring soon</span>}
+                  {!sold && !hasMot && <span className="alert-badge critical-badge">⚠ No valid MOT</span>}
+                  {!sold && hasMot && motWarn && <span className="alert-badge warn-badge">⚠ MOT expiring soon</span>}
+                  {!sold && serviceOverdue && <span className="alert-badge critical-badge">⚠ Service overdue</span>}
+                  {!sold && serviceSoon && <span className="alert-badge warn-badge">⚠ Service due soon</span>}
                 </div>
               </button>
             )
@@ -102,9 +125,12 @@ export default function VehiclesList({
         .veh-row { display: flex; align-items: center; gap: 0.875rem; padding: 0.75rem; border: 1px solid var(--border-light); border-radius: 10px; background: none; cursor: pointer; text-align: left; font-family: var(--font-body); transition: all 0.15s; width: 100%; }
         .veh-row:hover { background: var(--cream-dark); border-color: var(--parchment); }
         .veh-row.selected { background: var(--cream-dark); border-color: var(--warm-brown); box-shadow: 0 0 0 2px rgba(139,107,74,0.12); }
-        .veh-row.untaxed { border-color: #fecaca; background: #fff8f8; }
-        .veh-row.untaxed:hover { background: #fef2f2; }
-        .veh-row.untaxed.selected { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,0.15); }
+        .veh-row.critical { border-color: #fecaca; background: #fff8f8; }
+        .veh-row.critical:hover { background: #fef2f2; }
+        .veh-row.critical.selected { border-color: #dc2626; box-shadow: 0 0 0 2px rgba(220,38,38,0.15); }
+        .veh-row.expiring { border-color: #fde68a; background: #fffdf0; }
+        .veh-row.expiring:hover { background: #fefce8; }
+        .veh-row.expiring.selected { border-color: #d97706; box-shadow: 0 0 0 2px rgba(217,119,6,0.15); }
         .veh-row.sold { opacity: 0.65; }
         .veh-row.sold:hover { opacity: 0.85; }
         .veh-icon { font-size: 1.75rem; width: 44px; height: 44px; background: var(--cream-dark); border-radius: 10px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -115,7 +141,9 @@ export default function VehiclesList({
         .veh-sub { font-size: 0.8rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .veh-reg { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; background: #1a1a2e; color: #f5c518; padding: 0.1rem 0.5rem; border-radius: 4px; display: inline-block; width: fit-content; font-family: monospace; }
         .shared-out-badge { font-size: 0.75rem; opacity: 0.6; }
-        .untaxed-badge { font-size: 0.7rem; font-weight: 700; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-block; width: fit-content; }
+        .alert-badge { font-size: 0.7rem; font-weight: 700; padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-block; width: fit-content; }
+        .critical-badge { color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; }
+        .warn-badge { color: #b45309; background: #fffbeb; border: 1px solid #fde68a; }
         .sold-badge { font-size: 0.65rem; font-weight: 700; color: #6b7280; background: #f3f4f6; border: 1px solid #d1d5db; padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-block; text-transform: uppercase; letter-spacing: 0.05em; }
         .sold-toggle-row { padding: 0.5rem 0.75rem; border-top: 1px solid var(--border-light); flex-shrink: 0; }
         .sold-toggle-btn { width: 100%; font-size: 0.8rem; color: var(--text-muted); background: none; border: 1px solid var(--border-light); border-radius: 8px; padding: 0.4rem 0.75rem; cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }

@@ -9,12 +9,35 @@ import VehiclesList from './VehiclesList'
 import VehicleDetail from './VehicleDetail'
 import VehicleForm from './VehicleForm'
 
+function computeServiceStatus(serviceRows: { vehicle_id: string; service_date: string }[]) {
+  const latest: Record<string, string> = {}
+  for (const r of serviceRows) {
+    if (!latest[r.vehicle_id]) latest[r.vehicle_id] = r.service_date
+  }
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const overdueIds = new Set<string>()
+  const soonIds = new Set<string>()
+  for (const [vehicleId, serviceDate] of Object.entries(latest)) {
+    const nextDue = new Date(serviceDate)
+    nextDue.setFullYear(nextDue.getFullYear() + 1)
+    const daysUntilDue = Math.ceil((nextDue.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+    if (daysUntilDue <= 0) overdueIds.add(vehicleId)
+    else if (daysUntilDue <= 30) soonIds.add(vehicleId)
+  }
+  return { overdueIds, soonIds }
+}
+
 export default function VehiclesShell({
   initialVehicles,
   initialShares,
   taxedVehicleIds,
   insuredVehicleIds,
   motVehicleIds,
+  taxWarnVehicleIds,
+  insWarnVehicleIds,
+  motWarnVehicleIds,
+  serviceOverdueVehicleIds,
+  serviceDueSoonVehicleIds,
   userId,
   profile,
 }: {
@@ -23,6 +46,11 @@ export default function VehiclesShell({
   taxedVehicleIds: string[]
   insuredVehicleIds: string[]
   motVehicleIds: string[]
+  taxWarnVehicleIds: string[]
+  insWarnVehicleIds: string[]
+  motWarnVehicleIds: string[]
+  serviceOverdueVehicleIds: string[]
+  serviceDueSoonVehicleIds: string[]
   userId: string
   profile: { full_name: string | null; avatar_url: string | null } | null
 }) {
@@ -31,6 +59,11 @@ export default function VehiclesShell({
   const [taxedIds, setTaxedIds] = useState<Set<string>>(new Set(taxedVehicleIds))
   const [insuredIds, setInsuredIds] = useState<Set<string>>(new Set(insuredVehicleIds))
   const [motIds, setMotIds] = useState<Set<string>>(new Set(motVehicleIds))
+  const [taxWarnIds, setTaxWarnIds] = useState<Set<string>>(new Set(taxWarnVehicleIds))
+  const [insWarnIds, setInsWarnIds] = useState<Set<string>>(new Set(insWarnVehicleIds))
+  const [motWarnIds, setMotWarnIds] = useState<Set<string>>(new Set(motWarnVehicleIds))
+  const [serviceOverdueIds, setServiceOverdueIds] = useState<Set<string>>(new Set(serviceOverdueVehicleIds))
+  const [serviceDueSoonIds, setServiceDueSoonIds] = useState<Set<string>>(new Set(serviceDueSoonVehicleIds))
   const [shares, setShares] = useState<Record<string, ShareRecord[]>>(initialShares)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -41,30 +74,74 @@ export default function VehiclesShell({
     const { data } = await supabase.from('vehicles').select('*').order('name', { ascending: true })
     if (data) setVehicles(data as Vehicle[])
     const today = new Date().toISOString().split('T')[0]
-    const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
+    const soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30)
+    const soon = soonDate.toISOString().split('T')[0]
+    const [
+      { data: taxData }, { data: insData }, { data: motData },
+      { data: taxWarnData }, { data: insWarnData }, { data: motWarnData },
+      { data: svcData },
+    ] = await Promise.all([
+      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today),
+      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today),
+      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today),
+      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today).lte('expiry_date', soon),
+      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today).lte('end_date', soon),
+      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today).lte('expiry_date', soon),
+      (supabase as any).from('vehicle_services').select('vehicle_id, service_date').order('service_date', { ascending: false }),
+    ])
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
-    const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
     setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
-    const { data: motData } = await (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today)
     setMotIds(new Set((motData ?? []).map((r: any) => r.vehicle_id)))
+    setTaxWarnIds(new Set((taxWarnData ?? []).map((r: any) => r.vehicle_id)))
+    setInsWarnIds(new Set((insWarnData ?? []).map((r: any) => r.vehicle_id)))
+    setMotWarnIds(new Set((motWarnData ?? []).map((r: any) => r.vehicle_id)))
+    const { overdueIds, soonIds } = computeServiceStatus(svcData ?? [])
+    setServiceOverdueIds(overdueIds)
+    setServiceDueSoonIds(soonIds)
   }, [supabase])
 
   const refreshTaxStatus = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0]
-    const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
+    const soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30)
+    const soon = soonDate.toISOString().split('T')[0]
+    const [{ data: taxData }, { data: taxWarnData }] = await Promise.all([
+      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today),
+      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today).lte('expiry_date', soon),
+    ])
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
+    setTaxWarnIds(new Set((taxWarnData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
   const refreshInsuranceStatus = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0]
-    const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
+    const soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30)
+    const soon = soonDate.toISOString().split('T')[0]
+    const [{ data: insData }, { data: insWarnData }] = await Promise.all([
+      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today),
+      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today).lte('end_date', soon),
+    ])
     setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
+    setInsWarnIds(new Set((insWarnData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
   const refreshMotStatus = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0]
-    const { data: motData } = await (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today)
+    const soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30)
+    const soon = soonDate.toISOString().split('T')[0]
+    const [{ data: motData }, { data: motWarnData }] = await Promise.all([
+      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today),
+      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today).lte('expiry_date', soon),
+    ])
     setMotIds(new Set((motData ?? []).map((r: any) => r.vehicle_id)))
+    setMotWarnIds(new Set((motWarnData ?? []).map((r: any) => r.vehicle_id)))
+  }, [supabase])
+
+  const refreshServiceStatus = useCallback(async () => {
+    const { data: svcData } = await (supabase as any)
+      .from('vehicle_services').select('vehicle_id, service_date').order('service_date', { ascending: false })
+    const { overdueIds, soonIds } = computeServiceStatus(svcData ?? [])
+    setServiceOverdueIds(overdueIds)
+    setServiceDueSoonIds(soonIds)
   }, [supabase])
 
   const refreshShares = useCallback(async (vehicleId: string) => {
@@ -108,6 +185,11 @@ export default function VehiclesShell({
           taxedIds={taxedIds}
           insuredIds={insuredIds}
           motIds={motIds}
+          taxWarnIds={taxWarnIds}
+          insWarnIds={insWarnIds}
+          motWarnIds={motWarnIds}
+          serviceOverdueIds={serviceOverdueIds}
+          serviceDueSoonIds={serviceDueSoonIds}
           shares={shares}
           showSold={showSold}
           onSelect={handleSelect}
@@ -127,6 +209,7 @@ export default function VehiclesShell({
             onTaxChanged={refreshTaxStatus}
             onInsuranceChanged={refreshInsuranceStatus}
             onMotChanged={refreshMotStatus}
+            onServiceChanged={refreshServiceStatus}
           />
         ) : (
           <div className="vehicles-empty">
