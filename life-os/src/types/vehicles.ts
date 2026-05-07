@@ -14,6 +14,8 @@ export interface Vehicle {
   year: number | null
   colour: string | null
   notes: string | null
+  purchased_date: string | null
+  sold_date: string | null
   created_at: string
   updated_at: string
 }

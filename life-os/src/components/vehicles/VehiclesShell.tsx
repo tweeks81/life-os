@@ -32,6 +32,7 @@ export default function VehiclesShell({
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingVehicle, setEditingVehicle] = useState<Vehicle | null>(null)
+  const [showSold, setShowSold] = useState(false)
 
   const refreshVehicles = useCallback(async () => {
     const { data } = await supabase.from('vehicles').select('*').order('name', { ascending: true })
@@ -96,8 +97,10 @@ export default function VehiclesShell({
           taxedIds={taxedIds}
           insuredIds={insuredIds}
           shares={shares}
+          showSold={showSold}
           onSelect={handleSelect}
           onNew={() => { setEditingVehicle(null); setShowForm(true) }}
+          onToggleShowSold={() => setShowSold(s => !s)}
         />
 
         {selectedVehicle ? (

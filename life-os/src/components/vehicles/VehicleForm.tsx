@@ -21,6 +21,9 @@ export default function VehicleForm({ userId, vehicle, onSaved, onClose }: {
   const [year, setYear] = useState(vehicle?.year?.toString() ?? '')
   const [colour, setColour] = useState(vehicle?.colour ?? '')
   const [notes, setNotes] = useState(vehicle?.notes ?? '')
+  const [purchasedDate, setPurchasedDate] = useState(vehicle?.purchased_date ?? '')
+  const [isSold, setIsSold] = useState(vehicle?.sold_date != null)
+  const [soldDate, setSoldDate] = useState(vehicle?.sold_date ?? '')
 
   const handleSave = async () => {
     if (!name.trim()) { setError('Name is required.'); return }
@@ -31,6 +34,8 @@ export default function VehicleForm({ userId, vehicle, onSaved, onClose }: {
       reg_number: reg.trim().toUpperCase() || null,
       year: year ? parseInt(year) : null,
       colour: colour.trim() || null, notes: notes.trim() || null,
+      purchased_date: purchasedDate || null,
+      sold_date: isSold ? (soldDate || null) : null,
       updated_at: new Date().toISOString(),
     }
     if (isEdit) {
@@ -87,6 +92,22 @@ export default function VehicleForm({ userId, vehicle, onSaved, onClose }: {
             <input className="input-field" placeholder="e.g. Blue" value={colour} onChange={e => setColour(e.target.value)} />
           </div>
           <div className="field-group">
+            <label className="label">Purchased date</label>
+            <input className="input-field" type="date" value={purchasedDate} onChange={e => setPurchasedDate(e.target.value)} />
+          </div>
+          <div className="field-group">
+            <label className="sold-toggle-label">
+              <input type="checkbox" checked={isSold} onChange={e => setIsSold(e.target.checked)} />
+              Mark as sold
+            </label>
+          </div>
+          {isSold && (
+            <div className="field-group">
+              <label className="label">Sold date</label>
+              <input className="input-field" type="date" value={soldDate} onChange={e => setSoldDate(e.target.value)} />
+            </div>
+          )}
+          <div className="field-group">
             <label className="label">Notes</label>
             <textarea className="input-field" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Any additional notes…" style={{ resize: 'vertical' }} />
           </div>
@@ -109,6 +130,7 @@ export default function VehicleForm({ userId, vehicle, onSaved, onClose }: {
         .req { color: var(--terracotta); }
         .form-error { font-size: 0.875rem; color: #dc2626; background: #fef2f2; padding: 0.5rem 0.75rem; border-radius: 6px; border: 1px solid #fecaca; }
         .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 1rem 1.5rem; border-top: 1px solid var(--border-light); flex-shrink: 0; }
+        .sold-toggle-label { display: flex; align-items: center; gap: 0.5rem; font-size: 0.875rem; font-weight: 500; color: var(--text-primary); cursor: pointer; }
       `}</style>
     </div>
   )

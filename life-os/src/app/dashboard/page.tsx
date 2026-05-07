@@ -40,7 +40,7 @@ export default async function DashboardPage() {
       .order('priority', { ascending: true })
       .order('due_date', { ascending: true, nullsFirst: false }),
     supabase.from('projects').select('*').eq('status', 'active'),
-    supabase.from('vehicles').select('id, name, reg_number'),
+    supabase.from('vehicles').select('id, name, reg_number').is('sold_date', null),
     (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', new Date().toISOString().split('T')[0]),
 (supabase as any).from('vehicle_policies').select('vehicle_id, end_date').eq('policy_type', 'insurance').gte('end_date', new Date().toISOString().split('T')[0]),  ])
 
