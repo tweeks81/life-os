@@ -55,6 +55,7 @@ export default function RelationshipPicker({
   const available = useMemo(() => {
     const q = search.toLowerCase().trim()
     return allEntries.filter(e => {
+      if (e.type !== 'contact' && e.type !== 'linked') return false
       if (effectiveId(e) === currentEffectiveId) return false
       if (relatedIds.has(effectiveId(e))) return false
       if (!q) return true
@@ -127,7 +128,10 @@ export default function RelationshipPicker({
                         )}
                         <div className="rp-row-info">
                           <span className="rp-row-name">{name}</span>
-                          {entry.isSelf && <span className="rp-self-tag">You</span>}
+                          <div className="rp-row-tags">
+                            {entry.isSelf && <span className="rp-self-tag">You</span>}
+                            {entry.isLinked && <span className="rp-linked-tag">🔗 Linked</span>}
+                          </div>
                           {entry.email && <span className="rp-row-sub">{entry.email}</span>}
                         </div>
                       </button>
@@ -199,7 +203,9 @@ export default function RelationshipPicker({
         .rp-row-info { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.1rem; }
         .rp-row-name { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .rp-row-sub { font-size: 0.75rem; color: var(--text-muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .rp-row-tags { display: flex; gap: 0.25rem; align-items: center; }
         .rp-self-tag { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 4px; background: var(--parchment); color: var(--warm-brown); width: fit-content; }
+        .rp-linked-tag { font-size: 0.7rem; font-weight: 600; padding: 0.1rem 0.35rem; border-radius: 4px; background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; width: fit-content; }
         .rp-confirm-info { background: var(--cream); border-radius: 8px; padding: 0.75rem 1rem; }
         .rp-confirm-row { display: flex; align-items: center; gap: 0.75rem; }
         .rp-confirm-label { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); font-weight: 600; flex-shrink: 0; }
