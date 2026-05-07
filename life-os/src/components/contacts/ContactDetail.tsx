@@ -22,6 +22,43 @@ const INVERSE_ROLE: Record<string, string> = {
   spouse: 'spouse',
 }
 
+function joinNames(names: string[]): string {
+  if (names.length === 0) return ''
+  if (names.length === 1) return names[0]
+  if (names.length === 2) return `${names[0]} and ${names[1]}`
+  return names.slice(0, -1).join(', ') + ' and ' + names[names.length - 1]
+}
+
+function RelationshipDescription({
+  relationships,
+}: {
+  relationships: { relId: string; relEntry: ContactEntry; role: string }[]
+}) {
+  const order: Array<{ role: string; prefix: string }> = [
+    { role: 'child', prefix: 'Parent of' },
+    { role: 'spouse', prefix: 'Married to / Partner of' },
+    { role: 'parent', prefix: 'Child of' },
+    { role: 'sibling', prefix: 'Sibling of' },
+  ]
+
+  const lines = order.flatMap(({ role, prefix }) => {
+    const group = relationships.filter(r => r.role === role)
+    if (group.length === 0) return []
+    const names = group.map(r => `${r.relEntry.first_name} ${r.relEntry.last_name ?? ''}`.trim())
+    return [{ prefix, text: joinNames(names) }]
+  })
+
+  return (
+    <div className="rel-desc">
+      {lines.map(({ prefix, text }) => (
+        <p key={prefix} className="rel-desc-line">
+          {prefix} <span className="rel-desc-name">{text}</span>
+        </p>
+      ))}
+    </div>
+  )
+}
+
 export default function ContactDetail({
   entry,
   userId,
@@ -122,6 +159,7 @@ export default function ContactDetail({
 
   // Relationships
   const [showPicker, setShowPicker] = useState(false)
+  const [editingRelationships, setEditingRelationships] = useState(false)
 
   const contactRelationships = useMemo(() => {
     if (entry.type !== 'contact') return []
@@ -307,11 +345,18 @@ export default function ContactDetail({
           <div className="detail-section">
             <div className="rel-header">
               <div className="section-heading">Relationships</div>
-              <button className="rel-add-btn" onClick={() => setShowPicker(true)}>+ Add</button>
+              <div className="rel-header-actions">
+                {contactRelationships.length > 0 && (
+                  <button className="rel-action-btn" onClick={() => setEditingRelationships(e => !e)}>
+                    {editingRelationships ? 'Done' : 'Edit'}
+                  </button>
+                )}
+                <button className="rel-action-btn" onClick={() => setShowPicker(true)}>+ Add</button>
+              </div>
             </div>
             {contactRelationships.length === 0 ? (
               <p className="rel-empty">No relationships added yet.</p>
-            ) : (
+            ) : editingRelationships ? (
               <div className="rel-list">
                 {contactRelationships.map(({ relId, relEntry, role }) => {
                   const relName = `${relEntry.first_name} ${relEntry.last_name ?? ''}`.trim()
@@ -336,6 +381,8 @@ export default function ContactDetail({
                   )
                 })}
               </div>
+            ) : (
+              <RelationshipDescription relationships={contactRelationships} />
             )}
           </div>
         )}
@@ -412,9 +459,13 @@ export default function ContactDetail({
         .override-remove-btn { font-size: 0.75rem; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 0.25rem 0; text-decoration: underline; margin-left: auto; }
         .override-remove-btn:hover { color: var(--text-primary); }
         .rel-header { display: flex; align-items: center; justify-content: space-between; }
-        .rel-add-btn { font-size: 0.75rem; font-weight: 600; color: var(--terracotta); background: none; border: none; cursor: pointer; padding: 0; font-family: var(--font-body); }
-        .rel-add-btn:hover { text-decoration: underline; }
+        .rel-header-actions { display: flex; align-items: center; gap: 0.75rem; }
+        .rel-action-btn { font-size: 0.75rem; font-weight: 600; color: var(--terracotta); background: none; border: none; cursor: pointer; padding: 0; font-family: var(--font-body); }
+        .rel-action-btn:hover { text-decoration: underline; }
         .rel-empty { font-size: 0.8125rem; color: var(--text-muted); font-style: italic; }
+        .rel-desc { display: flex; flex-direction: column; gap: 0.3rem; }
+        .rel-desc-line { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.5; }
+        .rel-desc-name { color: var(--text-primary); font-weight: 500; }
         .rel-list { display: flex; flex-direction: column; gap: 0.375rem; }
         .rel-row { display: flex; align-items: center; gap: 0.625rem; padding: 0.375rem 0; }
         .rel-avatar { width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.75rem; font-weight: 700; color: white; flex-shrink: 0; }
