@@ -42,8 +42,7 @@ export default async function DashboardPage() {
     supabase.from('projects').select('*').eq('status', 'active'),
     supabase.from('vehicles').select('id, name, reg_number'),
     (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', new Date().toISOString().split('T')[0]),
-    (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', new Date().toISOString().split('T')[0]),
-  ])
+(supabase as any).from('vehicle_policies').select('vehicle_id, end_date').eq('policy_type', 'insurance').gte('end_date', new Date().toISOString().split('T')[0]),  ])
 
   // Fetch linked profiles for birthdays
   const linkedIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
@@ -91,6 +90,9 @@ export default async function DashboardPage() {
   const uninsuredVehicles = (allVehicles ?? []).filter((v: any) => !insuredVehicleIds.has(v.id))
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
+
+console.log('validInsurance:', validInsurance)
+console.log('today:', new Date().toISOString().split('T')[0])
 
   return (
     <DashboardClient
