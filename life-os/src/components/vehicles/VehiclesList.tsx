@@ -8,6 +8,7 @@ export default function VehiclesList({
   selectedId,
   taxedIds,
   insuredIds,
+  motIds,
   shares,
   showSold,
   onSelect,
@@ -19,6 +20,7 @@ export default function VehiclesList({
   selectedId: string | null
   taxedIds: Set<string>
   insuredIds: Set<string>
+  motIds: Set<string>
   shares: Record<string, any[]>
   showSold: boolean
   onSelect: (v: Vehicle) => void
@@ -48,8 +50,9 @@ export default function VehiclesList({
             const sold = v.sold_date != null
             const isTaxed = taxedIds.has(v.id)
             const isInsured = insuredIds.has(v.id)
+            const hasMot = motIds.has(v.id)
             const isShared = (shares[v.id] ?? []).length > 0
-            const hasWarning = !sold && (!isTaxed || !isInsured)
+            const hasWarning = !sold && (!isTaxed || !isInsured || !hasMot)
             return (
               <button
                 key={v.id}
@@ -70,6 +73,7 @@ export default function VehiclesList({
                   {v.reg_number && <span className="veh-reg">{v.reg_number.toUpperCase()}</span>}
                   {!sold && !isTaxed && <span className="untaxed-badge">⚠ No valid tax</span>}
                   {!sold && !isInsured && <span className="untaxed-badge">⚠ No valid insurance</span>}
+                  {!sold && !hasMot && <span className="untaxed-badge">⚠ No valid MOT</span>}
                 </div>
               </button>
             )

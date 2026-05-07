@@ -75,6 +75,7 @@ export default function DashboardClient({
   totalProjects,
   untaxedVehicles,
   uninsuredVehicles,
+  unmottedVehicles,
 }: {
   profile: any
   firstName: string
@@ -85,6 +86,7 @@ export default function DashboardClient({
   totalProjects: number
   untaxedVehicles: { id: string; name: string; reg_number: string | null }[]
   uninsuredVehicles: { id: string; name: string; reg_number: string | null }[]
+  unmottedVehicles: { id: string; name: string; reg_number: string | null }[]
 }) {
   const now = new Date()
   const hour = now.getHours()
@@ -143,18 +145,21 @@ export default function DashboardClient({
           </div>
         </div>
 
-        {(untaxedVehicles.length > 0 || uninsuredVehicles.length > 0) && (() => {
+        {(untaxedVehicles.length > 0 || uninsuredVehicles.length > 0 || unmottedVehicles.length > 0) && (() => {
           const allIds = Array.from(new Set([
             ...untaxedVehicles.map(v => v.id),
             ...uninsuredVehicles.map(v => v.id),
+            ...unmottedVehicles.map(v => v.id),
           ]))
           const untaxedSet = new Set(untaxedVehicles.map(v => v.id))
           const uninsuredSet = new Set(uninsuredVehicles.map(v => v.id))
+          const unmottedSet = new Set(unmottedVehicles.map(v => v.id))
           const rows = allIds.map(id => {
-            const v = untaxedVehicles.find(v => v.id === id) ?? uninsuredVehicles.find(v => v.id === id)!
+            const v = untaxedVehicles.find(v => v.id === id) ?? uninsuredVehicles.find(v => v.id === id) ?? unmottedVehicles.find(v => v.id === id)!
             const issues = [
               untaxedSet.has(id) && 'no valid tax',
               uninsuredSet.has(id) && 'no valid insurance',
+              unmottedSet.has(id) && 'no valid MOT',
             ].filter(Boolean).join(', ')
             return { ...v, issues }
           })

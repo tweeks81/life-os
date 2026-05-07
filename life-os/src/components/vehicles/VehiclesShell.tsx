@@ -14,6 +14,7 @@ export default function VehiclesShell({
   initialShares,
   taxedVehicleIds,
   insuredVehicleIds,
+  motVehicleIds,
   userId,
   profile,
 }: {
@@ -21,6 +22,7 @@ export default function VehiclesShell({
   initialShares: Record<string, ShareRecord[]>
   taxedVehicleIds: string[]
   insuredVehicleIds: string[]
+  motVehicleIds: string[]
   userId: string
   profile: { full_name: string | null; avatar_url: string | null } | null
 }) {
@@ -28,6 +30,7 @@ export default function VehiclesShell({
   const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles)
   const [taxedIds, setTaxedIds] = useState<Set<string>>(new Set(taxedVehicleIds))
   const [insuredIds, setInsuredIds] = useState<Set<string>>(new Set(insuredVehicleIds))
+  const [motIds, setMotIds] = useState<Set<string>>(new Set(motVehicleIds))
   const [shares, setShares] = useState<Record<string, ShareRecord[]>>(initialShares)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -42,6 +45,8 @@ export default function VehiclesShell({
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
     const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
     setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
+    const { data: motData } = await (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today)
+    setMotIds(new Set((motData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
   const refreshTaxStatus = useCallback(async () => {
@@ -54,6 +59,12 @@ export default function VehiclesShell({
     const today = new Date().toISOString().split('T')[0]
     const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
     setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
+  }, [supabase])
+
+  const refreshMotStatus = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0]
+    const { data: motData } = await (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today)
+    setMotIds(new Set((motData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
   const refreshShares = useCallback(async (vehicleId: string) => {
@@ -96,6 +107,7 @@ export default function VehiclesShell({
           selectedId={selectedVehicle?.id ?? null}
           taxedIds={taxedIds}
           insuredIds={insuredIds}
+          motIds={motIds}
           shares={shares}
           showSold={showSold}
           onSelect={handleSelect}
@@ -114,6 +126,7 @@ export default function VehiclesShell({
             onClose={() => setSelectedVehicle(null)}
             onTaxChanged={refreshTaxStatus}
             onInsuranceChanged={refreshInsuranceStatus}
+            onMotChanged={refreshMotStatus}
           />
         ) : (
           <div className="vehicles-empty">
