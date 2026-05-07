@@ -36,7 +36,6 @@ export default function VehiclesShell({
   const refreshVehicles = useCallback(async () => {
     const { data } = await supabase.from('vehicles').select('*').order('name', { ascending: true })
     if (data) setVehicles(data as Vehicle[])
-    // Refresh tax status
     const today = new Date().toISOString().split('T')[0]
     const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
@@ -48,6 +47,10 @@ export default function VehiclesShell({
     const today = new Date().toISOString().split('T')[0]
     const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
+  }, [supabase])
+
+  const refreshInsuranceStatus = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0]
     const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
     setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
