@@ -27,7 +27,7 @@ export default function ContactsList({
     const q = search.toLowerCase()
     return entries.filter(e =>
       e.first_name.toLowerCase().includes(q) ||
-      e.last_name.toLowerCase().includes(q) ||
+      (e.last_name ?? '').toLowerCase().includes(q) ||
       e.email?.toLowerCase().includes(q)
     )
   }, [entries, search])
@@ -35,7 +35,7 @@ export default function ContactsList({
   const grouped = useMemo(() => {
     const groups: Record<string, ContactEntry[]> = {}
     for (const entry of filtered) {
-      const letter = entry.last_name[0]?.toUpperCase() ?? '#'
+      const letter = entry.first_name[0]?.toUpperCase() ?? '#'
       if (!groups[letter]) groups[letter] = []
       groups[letter].push(entry)
     }
@@ -75,7 +75,7 @@ export default function ContactsList({
             <div key={letter} className="alpha-group">
               <div className="alpha-letter">{letter}</div>
               {groupEntries.map(entry => {
-                const displayName = `${entry.first_name} ${entry.last_name}`.trim()
+                const displayName = `${entry.first_name} ${entry.last_name ?? ''}`.trim()
                 const isSharedContact = entry.type === 'contact' && entry.contact?.user_id !== userId
 
                 return (
@@ -89,9 +89,9 @@ export default function ContactsList({
                     ) : (
                       <div
                         className="contact-avatar"
-                        style={{ background: contactAvatarColour({ first_name: entry.first_name, last_name: entry.last_name } as any) }}
+                        style={{ background: contactAvatarColour({ first_name: entry.first_name, last_name: entry.last_name ?? '' } as any) }}
                       >
-                        {entry.first_name[0]?.toUpperCase()}{entry.last_name[0]?.toUpperCase()}
+                        {entry.first_name[0]?.toUpperCase()}{(entry.last_name ?? '')[0]?.toUpperCase()}
                       </div>
                     )}
                     <div className="contact-info">

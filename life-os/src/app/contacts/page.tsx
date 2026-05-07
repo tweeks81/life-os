@@ -13,7 +13,7 @@ export default async function ContactsPage() {
     { data: shareRows },
     { data: linkedRaw },
   ] = await Promise.all([
-    supabase.from('contacts').select('*').order('last_name').order('first_name'),
+    supabase.from('contacts').select('*').order('first_name').order('last_name'),
     supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
     (supabase as any).from('contact_shares').select('id, contact_id, shared_with_email, created_at').eq('owner_id', user.id),
     (supabase as any).from('linked_contacts').select('id, user_id, linked_user_id, created_at').eq('user_id', user.id),
