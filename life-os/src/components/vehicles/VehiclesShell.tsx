@@ -97,6 +97,7 @@ export default function VehiclesShell({
             onEdit={() => { setEditingVehicle(selectedVehicle); setShowForm(true) }}
             onDelete={() => handleDelete(selectedVehicle.id)}
             onClose={() => setSelectedVehicle(null)}
+onTaxChanged={refreshTaxStatus}
           />
         ) : (
           <div className="vehicles-empty">
