@@ -73,9 +73,7 @@ export default function DashboardClient({
   urgentTasks,
   totalActiveTasks,
   totalProjects,
-  untaxedVehicles,
-  uninsuredVehicles,
-  unmottedVehicles,
+  vehicleWarnings,
 }: {
   profile: any
   firstName: string
@@ -84,9 +82,7 @@ export default function DashboardClient({
   urgentTasks: DashTask[]
   totalActiveTasks: number
   totalProjects: number
-  untaxedVehicles: { id: string; name: string; reg_number: string | null }[]
-  uninsuredVehicles: { id: string; name: string; reg_number: string | null }[]
-  unmottedVehicles: { id: string; name: string; reg_number: string | null }[]
+  vehicleWarnings: { id: string; name: string; reg_number: string | null; criticalIssues: string[]; warningIssues: string[] }[]
 }) {
   const now = new Date()
   const hour = now.getHours()
@@ -145,44 +141,32 @@ export default function DashboardClient({
           </div>
         </div>
 
-        {(untaxedVehicles.length > 0 || uninsuredVehicles.length > 0 || unmottedVehicles.length > 0) && (() => {
-          const allIds = Array.from(new Set([
-            ...untaxedVehicles.map(v => v.id),
-            ...uninsuredVehicles.map(v => v.id),
-            ...unmottedVehicles.map(v => v.id),
-          ]))
-          const untaxedSet = new Set(untaxedVehicles.map(v => v.id))
-          const uninsuredSet = new Set(uninsuredVehicles.map(v => v.id))
-          const unmottedSet = new Set(unmottedVehicles.map(v => v.id))
-          const rows = allIds.map(id => {
-            const v = untaxedVehicles.find(v => v.id === id) ?? uninsuredVehicles.find(v => v.id === id) ?? unmottedVehicles.find(v => v.id === id)!
-            const issues = [
-              untaxedSet.has(id) && 'no valid tax',
-              uninsuredSet.has(id) && 'no valid insurance',
-              unmottedSet.has(id) && 'no valid MOT',
-            ].filter(Boolean).join(', ')
-            return { ...v, issues }
-          })
-          return (
-            <div className="vehicle-alert">
-              <div className="vehicle-alert-header">
-                <span className="vehicle-alert-icon">⚠</span>
-                <strong>Vehicle action required</strong>
-                <a href="/vehicles" className="vehicle-alert-link">View vehicles →</a>
-              </div>
-              <div className="vehicle-alert-list">
-                {rows.map(v => (
-                  <div key={v.id} className="vehicle-alert-row">
-                    <span className="vehicle-alert-name">
-                      {v.name}{v.reg_number ? ` (${v.reg_number.toUpperCase()})` : ''}
-                    </span>
-                    <span className="vehicle-alert-issues">— {v.issues}</span>
-                  </div>
-                ))}
-              </div>
+        {vehicleWarnings.length > 0 && (
+          <div className="vehicle-alert">
+            <div className="vehicle-alert-header">
+              <span className="vehicle-alert-icon">⚠</span>
+              <strong>Vehicle action required</strong>
+              <a href="/vehicles" className="vehicle-alert-link">View vehicles →</a>
             </div>
-          )
-        })()}
+            <div className="vehicle-alert-list">
+              {vehicleWarnings.map(v => (
+                <div key={v.id} className="vehicle-alert-row">
+                  <span className="vehicle-alert-name">
+                    {v.name}{v.reg_number ? ` (${v.reg_number.toUpperCase()})` : ''}
+                  </span>
+                  <span className="vehicle-alert-issues">
+                    {v.criticalIssues.map((issue, i) => (
+                      <span key={i} className="issue-critical">{issue}</span>
+                    ))}
+                    {v.warningIssues.map((issue, i) => (
+                      <span key={i} className="issue-warning">{issue}</span>
+                    ))}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="dash-columns">
 
@@ -311,7 +295,9 @@ export default function DashboardClient({
         .vehicle-alert-row { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; padding: 0.375rem 0; border-top: 1px solid #fecaca; }
         .vehicle-alert-row:first-child { border-top: none; }
         .vehicle-alert-name { font-weight: 600; color: #7f1d1d; white-space: nowrap; }
-        .vehicle-alert-issues { color: #991b1b; }
+        .vehicle-alert-issues { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
+        .issue-critical { font-size: 0.8rem; font-weight: 600; color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; padding: 0.05rem 0.4rem; border-radius: 4px; }
+        .issue-warning { font-size: 0.8rem; font-weight: 600; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 0.05rem 0.4rem; border-radius: 4px; }
         @media (max-width: 768px) {
           .dash-main { padding: 1.25rem 1rem 2rem; }
           .dash-header { flex-direction: column; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
