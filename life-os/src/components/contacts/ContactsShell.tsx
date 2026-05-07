@@ -10,6 +10,14 @@ import ContactsList from './ContactsList'
 import ContactDetail from './ContactDetail'
 import ContactForm from './ContactForm'
 
+export interface NameOverride {
+  id: string
+  contact_id: string | null
+  linked_user_id: string | null
+  first_name: string
+  last_name: string | null
+}
+
 export interface ContactEntry {
   type: 'contact' | 'linked'
   contact?: Contact
@@ -23,18 +31,24 @@ export interface ContactEntry {
   user_id: string
   isLinked: boolean
   linkedUserId?: string
+  canSetName: boolean
+  originalFirstName: string
+  originalLastName: string | null
+  nameOverride: NameOverride | null
 }
 
 export default function ContactsShell({
   initialContacts,
   initialContactShares,
   initialLinked,
+  initialNameOverrides,
   userId,
   profile,
 }: {
   initialContacts: Contact[]
   initialContactShares: Record<string, ShareRecord[]>
   initialLinked: LinkedContact[]
+  initialNameOverrides: NameOverride[]
   userId: string
   profile: { full_name: string | null; avatar_url: string | null } | null
 }) {
@@ -42,6 +56,7 @@ export default function ContactsShell({
   const [contacts, setContacts] = useState<Contact[]>(initialContacts)
   const [linked, setLinked] = useState<LinkedContact[]>(initialLinked)
   const [contactShares, setContactShares] = useState<Record<string, ShareRecord[]>>(initialContactShares)
+  const [nameOverrides, setNameOverrides] = useState<NameOverride[]>(initialNameOverrides)
   const [selectedEntry, setSelectedEntry] = useState<ContactEntry | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
@@ -73,21 +88,40 @@ export default function ContactsShell({
     setContactShares(prev => ({ ...prev, [contactId]: data ?? [] }))
   }, [supabase, userId])
 
+  const refreshNameOverrides = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('contact_name_overrides')
+      .select('id, contact_id, linked_user_id, first_name, last_name')
+      .eq('user_id', userId)
+    if (data) setNameOverrides(data)
+  }, [supabase, userId])
+
   const allEntries = useMemo((): ContactEntry[] => {
     const entries: ContactEntry[] = []
 
     for (const c of contacts) {
+      const isSharedWithMe = c.user_id !== userId
+      const override = isSharedWithMe
+        ? nameOverrides.find(o => o.contact_id === c.id) ?? null
+        : null
+      const originalFirst = c.first_name
+      const originalLast = c.last_name
+
       entries.push({
         type: 'contact',
         contact: c,
         id: c.id,
-        first_name: c.first_name,
-        last_name: c.last_name,
+        first_name: override ? override.first_name : originalFirst,
+        last_name: override ? override.last_name : originalLast,
         email: c.email,
         date_of_birth: c.date_of_birth,
         avatar_url: null,
         user_id: c.user_id,
         isLinked: false,
+        canSetName: isSharedWithMe,
+        originalFirstName: originalFirst,
+        originalLastName: originalLast,
+        nameOverride: override,
       })
     }
 
@@ -95,26 +129,32 @@ export default function ContactsShell({
       if (!l.profile) continue
       const nameParts = (l.profile.full_name ?? '').trim().split(' ')
       const first = nameParts[0] ?? ''
-      const last = nameParts.slice(1).join(' ') || first
+      const last = nameParts.slice(1).join(' ') || null
+      const override = nameOverrides.find(o => o.linked_user_id === l.linked_user_id) ?? null
+
       entries.push({
         type: 'linked',
         linked: l,
         id: `linked-${l.linked_user_id}`,
-        first_name: first,
-        last_name: last,
+        first_name: override ? override.first_name : first,
+        last_name: override ? override.last_name : last,
         email: l.profile.email,
         date_of_birth: l.profile.date_of_birth,
         avatar_url: l.profile.avatar_url,
         user_id: userId,
         isLinked: true,
         linkedUserId: l.linked_user_id,
+        canSetName: true,
+        originalFirstName: first,
+        originalLastName: last,
+        nameOverride: override,
       })
     }
 
     return entries.sort((a, b) =>
       a.first_name.localeCompare(b.first_name) || (a.last_name ?? '').localeCompare(b.last_name ?? '')
     )
-  }, [contacts, linked, userId])
+  }, [contacts, linked, userId, nameOverrides])
 
   const handleSelectEntry = useCallback((entry: ContactEntry) => {
     setSelectedEntry(entry)
@@ -123,6 +163,15 @@ export default function ContactsShell({
     }
   }, [userId, refreshShares])
 
+  const handleNameOverrideSaved = useCallback(async () => {
+    await refreshNameOverrides()
+    // Update selectedEntry with fresh override data
+    setSelectedEntry(prev => {
+      if (!prev) return null
+      return prev // will be updated via allEntries memo on next render
+    })
+  }, [refreshNameOverrides])
+
   const handleSaved = useCallback(async (contact?: Contact) => {
     await refreshContacts()
     setShowForm(false)
@@ -130,22 +179,31 @@ export default function ContactsShell({
     if (contact) {
       const { data } = await supabase.from('contacts').select('*').eq('id', contact.id).single()
       if (data) {
+        const c = data as Contact
+        const isSharedWithMe = c.user_id !== userId
+        const override = isSharedWithMe
+          ? nameOverrides.find(o => o.contact_id === c.id) ?? null
+          : null
         const entry: ContactEntry = {
           type: 'contact',
-          contact: data as Contact,
-          id: (data as Contact).id,
-          first_name: (data as Contact).first_name,
-          last_name: (data as Contact).last_name,
-          email: (data as Contact).email,
-          date_of_birth: (data as Contact).date_of_birth,
+          contact: c,
+          id: c.id,
+          first_name: override ? override.first_name : c.first_name,
+          last_name: override ? override.last_name : c.last_name,
+          email: c.email,
+          date_of_birth: c.date_of_birth,
           avatar_url: null,
-          user_id: (data as Contact).user_id,
+          user_id: c.user_id,
           isLinked: false,
+          canSetName: isSharedWithMe,
+          originalFirstName: c.first_name,
+          originalLastName: c.last_name,
+          nameOverride: override,
         }
         setSelectedEntry(entry)
       }
     }
-  }, [refreshContacts, supabase])
+  }, [refreshContacts, supabase, userId, nameOverrides])
 
   const handleDelete = useCallback(async (contactId: string) => {
     await supabase.from('contacts').delete().eq('id', contactId)
@@ -160,6 +218,12 @@ export default function ContactsShell({
     }
   }, [])
 
+  // Keep selectedEntry in sync with allEntries (so name overrides refresh propagates)
+  const syncedSelectedEntry = useMemo(() => {
+    if (!selectedEntry) return null
+    return allEntries.find(e => e.id === selectedEntry.id) ?? selectedEntry
+  }, [selectedEntry, allEntries])
+
   return (
     <div className="contacts-shell">
       <NavBar profile={profile} />
@@ -168,7 +232,7 @@ export default function ContactsShell({
         <ContactsList
           entries={allEntries}
           userId={userId}
-          selectedId={selectedEntry?.id ?? null}
+          selectedId={syncedSelectedEntry?.id ?? null}
           search={search}
           onSearch={setSearch}
           onSelectEntry={handleSelectEntry}
@@ -177,15 +241,16 @@ export default function ContactsShell({
 
         <div className="mobile-bottom-spacer" />
 
-        {selectedEntry ? (
+        {syncedSelectedEntry ? (
           <ContactDetail
-            entry={selectedEntry}
+            entry={syncedSelectedEntry}
             userId={userId}
-            shares={selectedEntry.type === 'contact' ? (contactShares[selectedEntry.id] ?? []) : []}
-            onSharesChanged={() => selectedEntry.type === 'contact' && refreshShares(selectedEntry.id)}
-            onEdit={() => handleEdit(selectedEntry)}
-            onDelete={() => selectedEntry.contact && handleDelete(selectedEntry.contact.id)}
+            shares={syncedSelectedEntry.type === 'contact' ? (contactShares[syncedSelectedEntry.id] ?? []) : []}
+            onSharesChanged={() => syncedSelectedEntry.type === 'contact' && refreshShares(syncedSelectedEntry.id)}
+            onEdit={() => handleEdit(syncedSelectedEntry)}
+            onDelete={() => syncedSelectedEntry.contact && handleDelete(syncedSelectedEntry.contact.id)}
             onClose={() => setSelectedEntry(null)}
+            onNameOverrideSaved={handleNameOverrideSaved}
           />
         ) : (
           <div className="contacts-empty-state">
