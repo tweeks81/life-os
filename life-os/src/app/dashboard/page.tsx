@@ -27,6 +27,7 @@ export default async function DashboardPage() {
     { data: allVehicles },
     { data: validTax },
     { data: validInsurance },
+    { data: validMot },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     (supabase as any).from('calendar_events').select('*').eq('user_id', user.id),
@@ -42,7 +43,9 @@ export default async function DashboardPage() {
     supabase.from('projects').select('*').eq('status', 'active'),
     supabase.from('vehicles').select('id, name, reg_number').is('sold_date', null),
     (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', new Date().toISOString().split('T')[0]),
-(supabase as any).from('vehicle_policies').select('vehicle_id, end_date').eq('policy_type', 'insurance').gte('end_date', new Date().toISOString().split('T')[0]),  ])
+    (supabase as any).from('vehicle_policies').select('vehicle_id, end_date').eq('policy_type', 'insurance').gte('end_date', new Date().toISOString().split('T')[0]),
+    (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', new Date().toISOString().split('T')[0]),
+  ])
 
   // Fetch linked profiles for birthdays
   const linkedIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
@@ -86,8 +89,10 @@ export default async function DashboardPage() {
   // Work out which vehicles have no valid tax
   const taxedVehicleIds = new Set((validTax ?? []).map((r: any) => r.vehicle_id))
   const insuredVehicleIds = new Set((validInsurance ?? []).map((r: any) => r.vehicle_id))
+  const motVehicleIds = new Set((validMot ?? []).map((r: any) => r.vehicle_id))
   const untaxedVehicles = (allVehicles ?? []).filter((v: any) => !taxedVehicleIds.has(v.id))
   const uninsuredVehicles = (allVehicles ?? []).filter((v: any) => !insuredVehicleIds.has(v.id))
+  const unmottedVehicles = (allVehicles ?? []).filter((v: any) => !motVehicleIds.has(v.id))
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
@@ -108,6 +113,7 @@ export default async function DashboardPage() {
       totalProjects={(projects ?? []).length}
       untaxedVehicles={untaxedVehicles}
       uninsuredVehicles={uninsuredVehicles}
+      unmottedVehicles={unmottedVehicles}
     />
   )
 }

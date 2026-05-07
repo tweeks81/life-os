@@ -13,12 +13,14 @@ export default async function VehiclesPage() {
     { data: shareRows },
     { data: taxRows },
     { data: insRows },
+    { data: motRows },
   ] = await Promise.all([
     supabase.from('vehicles').select('*').order('name', { ascending: true }),
     supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
     (supabase as any).from('vehicle_shares').select('id, vehicle_id, shared_with_email, created_at').eq('owner_id', user.id),
     (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', new Date().toISOString().split('T')[0]),
     (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', new Date().toISOString().split('T')[0]),
+    (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', new Date().toISOString().split('T')[0]),
   ])
 
   const vehicleShares: Record<string, any[]> = {}
@@ -27,9 +29,9 @@ export default async function VehiclesPage() {
     vehicleShares[row.vehicle_id].push({ id: row.id, shared_with_email: row.shared_with_email, created_at: row.created_at })
   }
 
-  // Build a set of vehicle IDs that have valid (non-expired) tax
   const taxedVehicleIds = new Set<string>((taxRows ?? []).map((r: any) => r.vehicle_id))
   const insuredVehicleIds = new Set<string>((insRows ?? []).map((r: any) => r.vehicle_id))
+  const motVehicleIds = new Set<string>((motRows ?? []).map((r: any) => r.vehicle_id))
 
   return (
     <VehiclesShell
@@ -37,6 +39,7 @@ export default async function VehiclesPage() {
       initialShares={vehicleShares}
       taxedVehicleIds={Array.from(taxedVehicleIds)}
       insuredVehicleIds={Array.from(insuredVehicleIds)}
+      motVehicleIds={Array.from(motVehicleIds)}
       userId={user.id}
       profile={profile}
     />
