@@ -24,6 +24,8 @@ export default async function DashboardPage() {
     { data: sharedWithMe },
     { data: tasks },
     { data: projects },
+    { data: allVehicles },
+    { data: validTax },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     (supabase as any).from('calendar_events').select('*').eq('user_id', user.id),
@@ -37,6 +39,8 @@ export default async function DashboardPage() {
       .order('priority', { ascending: true })
       .order('due_date', { ascending: true, nullsFirst: false }),
     supabase.from('projects').select('*').eq('status', 'active'),
+    supabase.from('vehicles').select('id, name, reg_number'),
+    (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', new Date().toISOString().split('T')[0]),
   ])
 
   // Fetch linked profiles for birthdays
@@ -78,6 +82,10 @@ export default async function DashboardPage() {
   // Tasks with no due date but P1
   const urgentNoDue = (tasks ?? []).filter((t: any) => t.priority === 1 && !t.due_date)
 
+  // Work out which vehicles have no valid tax
+  const taxedVehicleIds = new Set((validTax ?? []).map((r: any) => r.vehicle_id))
+  const untaxedVehicles = (allVehicles ?? []).filter((v: any) => !taxedVehicleIds.has(v.id))
+
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
   return (
@@ -95,6 +103,7 @@ export default async function DashboardPage() {
       urgentTasks={urgentNoDue}
       totalActiveTasks={(tasks ?? []).length}
       totalProjects={(projects ?? []).length}
+      untaxedVehicles={untaxedVehicles}
     />
   )
 }

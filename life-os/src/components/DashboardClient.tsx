@@ -74,6 +74,7 @@ export default function DashboardClient({
   urgentTasks,
   totalActiveTasks,
   totalProjects,
+  untaxedVehicles,
 }: {
   profile: any
   firstName: string
@@ -82,6 +83,7 @@ export default function DashboardClient({
   urgentTasks: DashTask[]
   totalActiveTasks: number
   totalProjects: number
+  untaxedVehicles: { id: string; name: string; reg_number: string | null }[]
 }) {
   const now = new Date()
   const hour = now.getHours()
@@ -140,6 +142,25 @@ export default function DashboardClient({
             </Link>
           </div>
         </div>
+
+        {untaxedVehicles.length > 0 && (
+          <div className="untaxed-warning">
+            <span className="untaxed-warning-icon">⚠</span>
+            <div className="untaxed-warning-content">
+              <strong>Vehicle tax required</strong>
+              <span>
+                {untaxedVehicles.map((v, i) => (
+                  <span key={v.id}>
+                    {v.name}{v.reg_number ? ` (${v.reg_number.toUpperCase()})` : ''}
+                    {i < untaxedVehicles.length - 1 ? ', ' : ''}
+                  </span>
+                ))}
+                {untaxedVehicles.length === 1 ? ' has no valid tax.' : ' have no valid tax.'}
+              </span>
+            </div>
+            <a href="/vehicles" className="untaxed-warning-link">View →</a>
+          </div>
+        )}
 
         <div className="dash-columns">
 
@@ -495,6 +516,52 @@ export default function DashboardClient({
           font-size: 0.6875rem;
           color: var(--text-muted);
           margin-top: 0.1rem;
+        }
+
+        .untaxed-warning {
+          display: flex;
+          align-items: center;
+          gap: 0.875rem;
+          padding: 0.875rem 1.25rem;
+          background: #fef2f2;
+          border: 1.5px solid #fca5a5;
+          border-radius: 12px;
+          margin-bottom: 1.5rem;
+          animation: fadeUp 0.4s ease;
+        }
+        .untaxed-warning-icon {
+          font-size: 1.375rem;
+          flex-shrink: 0;
+        }
+        .untaxed-warning-content {
+          flex: 1;
+          display: flex;
+          flex-direction: column;
+          gap: 0.125rem;
+          font-size: 0.875rem;
+          color: #991b1b;
+          line-height: 1.4;
+        }
+        .untaxed-warning-content strong {
+          font-weight: 700;
+          font-size: 0.9rem;
+        }
+        .untaxed-warning-link {
+          font-size: 0.875rem;
+          font-weight: 600;
+          color: #dc2626;
+          text-decoration: none;
+          white-space: nowrap;
+          flex-shrink: 0;
+          padding: 0.375rem 0.75rem;
+          border: 1.5px solid #fca5a5;
+          border-radius: 8px;
+          transition: all 0.15s;
+        }
+        .untaxed-warning-link:hover {
+          background: #dc2626;
+          color: white;
+          border-color: #dc2626;
         }
 
         /* Mobile */

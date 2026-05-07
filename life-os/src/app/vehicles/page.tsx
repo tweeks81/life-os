@@ -11,10 +11,13 @@ export default async function VehiclesPage() {
     { data: vehicles },
     { data: profile },
     { data: shareRows },
+    { data: taxRows },
   ] = await Promise.all([
     supabase.from('vehicles').select('*').order('name', { ascending: true }),
     supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
     (supabase as any).from('vehicle_shares').select('id, vehicle_id, shared_with_email, created_at').eq('owner_id', user.id),
+    // Fetch all non-expired tax records so we can check each vehicle
+    (supabase as any).from('vehicle_tax').select('vehicle_id, expiry_date').gte('expiry_date', new Date().toISOString().split('T')[0]),
   ])
 
   const vehicleShares: Record<string, any[]> = {}
@@ -23,10 +26,14 @@ export default async function VehiclesPage() {
     vehicleShares[row.vehicle_id].push({ id: row.id, shared_with_email: row.shared_with_email, created_at: row.created_at })
   }
 
+  // Build a set of vehicle IDs that have valid (non-expired) tax
+  const taxedVehicleIds = new Set<string>((taxRows ?? []).map((r: any) => r.vehicle_id))
+
   return (
     <VehiclesShell
       initialVehicles={vehicles ?? []}
       initialShares={vehicleShares}
+      taxedVehicleIds={Array.from(taxedVehicleIds)}
       userId={user.id}
       profile={profile}
     />

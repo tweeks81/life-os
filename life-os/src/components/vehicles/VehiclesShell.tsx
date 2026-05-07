@@ -12,16 +12,19 @@ import VehicleForm from './VehicleForm'
 export default function VehiclesShell({
   initialVehicles,
   initialShares,
+  taxedVehicleIds,
   userId,
   profile,
 }: {
   initialVehicles: Vehicle[]
   initialShares: Record<string, ShareRecord[]>
+  taxedVehicleIds: string[]
   userId: string
   profile: { full_name: string | null; avatar_url: string | null } | null
 }) {
   const supabase = createClient()
   const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles)
+  const [taxedIds, setTaxedIds] = useState<Set<string>>(new Set(taxedVehicleIds))
   const [shares, setShares] = useState<Record<string, ShareRecord[]>>(initialShares)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -30,6 +33,10 @@ export default function VehiclesShell({
   const refreshVehicles = useCallback(async () => {
     const { data } = await supabase.from('vehicles').select('*').order('name', { ascending: true })
     if (data) setVehicles(data as Vehicle[])
+    // Refresh tax status
+    const today = new Date().toISOString().split('T')[0]
+    const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
+    setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
   const refreshShares = useCallback(async (vehicleId: string) => {
@@ -70,6 +77,7 @@ export default function VehiclesShell({
           vehicles={vehicles}
           userId={userId}
           selectedId={selectedVehicle?.id ?? null}
+          taxedIds={taxedIds}
           onSelect={handleSelect}
           onNew={() => { setEditingVehicle(null); setShowForm(true) }}
         />
