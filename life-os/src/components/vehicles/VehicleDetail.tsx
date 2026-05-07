@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Vehicle, VehicleMot, VehicleService, VehicleMaintenance, VehiclePolicy,
+  Vehicle, VehicleMot, VehicleService, VehicleMaintenance, VehiclePolicy, VehicleTax,
   VEHICLE_TYPE_LABELS, VEHICLE_TYPE_ICONS,
-  SERVICE_TYPE_LABELS, POLICY_TYPE_LABELS, COVERAGE_TYPE_LABELS,
+  SERVICE_TYPE_LABELS, POLICY_TYPE_LABELS, COVERAGE_TYPE_LABELS, TAX_DURATION_LABELS,
   isExpired, isExpiringSoon
 } from '@/types/vehicles'
 import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
@@ -13,8 +13,9 @@ import MotForm from './MotForm'
 import ServiceForm from './ServiceForm'
 import MaintenanceForm from './MaintenanceForm'
 import PolicyForm from './PolicyForm'
+import TaxForm from './TaxForm'
 
-type Tab = 'info' | 'mot' | 'service' | 'maintenance' | 'policies'
+type Tab = 'info' | 'mot' | 'service' | 'maintenance' | 'policies' | 'tax'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'info', label: 'Info', icon: '🚗' },
@@ -22,6 +23,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'service', label: 'Service', icon: '🔧' },
   { id: 'maintenance', label: 'Maintenance', icon: '🛠' },
   { id: 'policies', label: 'Policies', icon: '🛡' },
+  { id: 'tax', label: 'Tax', icon: '📋' },
 ]
 
 export default function VehicleDetail({
@@ -42,14 +44,17 @@ export default function VehicleDetail({
   const [services, setServices] = useState<VehicleService[]>([])
   const [maintenance, setMaintenance] = useState<VehicleMaintenance[]>([])
   const [policies, setPolicies] = useState<VehiclePolicy[]>([])
+  const [taxRecords, setTaxRecords] = useState<VehicleTax[]>([])
   const [showMotForm, setShowMotForm] = useState(false)
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false)
   const [showPolicyForm, setShowPolicyForm] = useState(false)
+  const [showTaxForm, setShowTaxForm] = useState(false)
   const [editingMot, setEditingMot] = useState<VehicleMot | null>(null)
   const [editingService, setEditingService] = useState<VehicleService | null>(null)
   const [editingMaintenance, setEditingMaintenance] = useState<VehicleMaintenance | null>(null)
   const [editingPolicy, setEditingPolicy] = useState<VehiclePolicy | null>(null)
+  const [editingTax, setEditingTax] = useState<VehicleTax | null>(null)
 
   const loadTab = useCallback(async (t: Tab) => {
     if (t === 'mot') {
@@ -64,6 +69,9 @@ export default function VehicleDetail({
     } else if (t === 'policies') {
       const { data } = await (supabase as any).from('vehicle_policies').select('*').eq('vehicle_id', vehicle.id).order('end_date', { ascending: false })
       setPolicies(data ?? [])
+    } else if (t === 'tax') {
+      const { data } = await (supabase as any).from('vehicle_tax').select('*').eq('vehicle_id', vehicle.id).order('expiry_date', { ascending: false })
+      setTaxRecords(data ?? [])
     }
   }, [supabase, vehicle.id])
 
@@ -81,6 +89,8 @@ export default function VehicleDetail({
   // Next MOT expiry
   const nextMot = mots.length > 0 ? mots[0] : null
   const nextPolicy = policies.find(p => p.policy_type === 'insurance' && !isExpired(p.end_date))
+  const currentTax = taxRecords.find(t => !isExpired(t.expiry_date))
+  const taxExpired = taxRecords.length > 0 && !currentTax
 
   return (
     <div className="veh-detail">
@@ -140,6 +150,17 @@ export default function VehicleDetail({
                     <div className="status-card-label">MOT</div>
                     <div className="status-card-value">
                       {isExpired(nextMot.expiry_date) ? 'EXPIRED' : `Expires ${fmt(nextMot.expiry_date)}`}
+                    </div>
+                  </div>
+                </div>
+              )}
+              {(currentTax || taxExpired) && (
+                <div className={`status-card ${taxExpired ? 'expired' : isExpiringSoon(currentTax!.expiry_date, 30) ? 'warning' : 'ok'}`}>
+                  <span className="status-card-icon">📋</span>
+                  <div>
+                    <div className="status-card-label">Tax</div>
+                    <div className="status-card-value">
+                      {taxExpired ? 'NO VALID TAX' : `Expires ${fmt(currentTax!.expiry_date)}`}
                     </div>
                   </div>
                 </div>
@@ -281,6 +302,44 @@ export default function VehicleDetail({
           </div>
         )}
 
+        {/* TAX TAB */}
+        {tab === 'tax' && (
+          <div className="tab-content">
+            {isOwner && (
+              <button className="add-record-btn" onClick={() => { setEditingTax(null); setShowTaxForm(true) }}>
+                + Add tax
+              </button>
+            )}
+            {taxExpired && (
+              <div className="tax-warning">
+                ⚠ No valid tax found for this vehicle. Please add a current tax record.
+              </div>
+            )}
+            {taxRecords.length === 0 ? (
+              <EmptyTab label="No tax records yet." />
+            ) : (
+              taxRecords.map(t => (
+                <div key={t.id} className={`record-card ${isExpired(t.expiry_date) ? 'record-expired' : isExpiringSoon(t.expiry_date) ? 'record-warning' : ''}`}>
+                  <div className="record-header">
+                    <span className="record-title">{TAX_DURATION_LABELS[t.duration]} — from {fmt(t.start_date)}</span>
+                    {isOwner && (
+                      <div className="record-actions">
+                        <button className="record-edit-btn" onClick={() => { setEditingTax(t); setShowTaxForm(true) }}>Edit</button>
+                        <button className="record-delete-btn" onClick={async () => { if (confirm('Delete this tax record?')) { await (supabase as any).from('vehicle_tax').delete().eq('id', t.id); loadTab('tax') } }}>🗑</button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="record-fields">
+                    <RecordField label="Expires" value={fmt(t.expiry_date)} highlight={isExpired(t.expiry_date) ? 'expired' : isExpiringSoon(t.expiry_date) ? 'warning' : undefined} />
+                    {t.cost != null && <RecordField label="Cost" value={fmtCost(t.cost)!} />}
+                  </div>
+                  {t.notes && <p className="record-notes">{t.notes}</p>}
+                </div>
+              ))
+            )}
+          </div>
+        )}
+
         {/* POLICIES TAB */}
         {tab === 'policies' && (
           <div className="tab-content">
@@ -327,6 +386,7 @@ export default function VehicleDetail({
       {showServiceForm && <ServiceForm vehicleId={vehicle.id} userId={userId} service={editingService} onSaved={() => { loadTab('service'); setShowServiceForm(false); setEditingService(null) }} onClose={() => { setShowServiceForm(false); setEditingService(null) }} />}
       {showMaintenanceForm && <MaintenanceForm vehicleId={vehicle.id} userId={userId} maintenance={editingMaintenance} onSaved={() => { loadTab('maintenance'); setShowMaintenanceForm(false); setEditingMaintenance(null) }} onClose={() => { setShowMaintenanceForm(false); setEditingMaintenance(null) }} />}
       {showPolicyForm && <PolicyForm vehicleId={vehicle.id} userId={userId} policy={editingPolicy} onSaved={() => { loadTab('policies'); setShowPolicyForm(false); setEditingPolicy(null) }} onClose={() => { setShowPolicyForm(false); setEditingPolicy(null) }} />}
+      {showTaxForm && <TaxForm vehicleId={vehicle.id} userId={userId} tax={editingTax} onSaved={() => { loadTab('tax'); setShowTaxForm(false); setEditingTax(null) }} onClose={() => { setShowTaxForm(false); setEditingTax(null) }} />}
 
       <style>{`
         .veh-detail { flex: 1; background: white; border-left: 1px solid var(--border-light); box-shadow: -4px 0 24px var(--shadow-warm-md); display: flex; flex-direction: column; overflow: hidden; animation: slideIn 0.22s ease; max-width: 560px; }
@@ -397,6 +457,7 @@ export default function VehicleDetail({
         .record-field-value.warning { color: #b45309; font-weight: 700; }
         .record-notes { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; font-style: italic; border-top: 1px solid var(--border-light); padding-top: 0.375rem; }
         .empty-tab { text-align: center; padding: 2.5rem 1rem; font-size: 0.875rem; color: var(--text-muted); font-style: italic; }
+        .tax-warning { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.875rem 1rem; font-size: 0.875rem; font-weight: 600; color: #dc2626; line-height: 1.5; }
       `}</style>
     </div>
   )

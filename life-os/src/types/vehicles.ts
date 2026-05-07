@@ -115,3 +115,21 @@ export function isExpiringSoon(dateStr: string, days = 30): boolean {
 export function isExpired(dateStr: string): boolean {
   return new Date(dateStr) < new Date()
 }
+
+export interface VehicleTax {
+  id: string
+  vehicle_id: string
+  user_id: string
+  duration: '6_months' | '12_months'
+  start_date: string
+  expiry_date: string
+  cost: number | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
+export const TAX_DURATION_LABELS: Record<string, string> = {
+  '6_months': '6 months',
+  '12_months': '12 months',
+}
