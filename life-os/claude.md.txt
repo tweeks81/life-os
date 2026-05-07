@@ -1,0 +1,34 @@
+# Life OS — Project Notes
+
+## Stack
+- Next.js 14 App Router, TypeScript
+- Supabase (auth, database, storage, RLS)
+- Deployed on Vercel from GitHub repo `tweeks81/life-os`
+- Root directory on Vercel: `life-os`
+
+## Modules built
+- **Auth** — Google OAuth, invite-only whitelist (`allowed_emails` table)
+- **Dashboard** — Daily digest: today's tasks/events, coming up 7 days, vehicle warnings
+- **Tasks** — Projects + tasks, priority, sharing, activity log
+- **Calendar** — Month/week view, birthdays, UK bank holidays, sharing
+- **Contacts** — Full contact list, linked contacts (Life OS users), sharing
+- **Properties** — Property list/detail, photo upload, primary residence, sharing
+- **Vehicles** — Vehicle list/detail, tabs: Info/Insurance/Tax/MOT/Service/Maintenance, sharing
+  - Insurance warnings (no valid insurance) shown on list + dashboard
+  - Tax warnings (no valid tax) shown on list + dashboard
+  - Both warnings live-refresh without page reload
+
+## SQL migrations run
+supabase/setup.sql, tasks.sql, sharing.sql, contacts.sql, linked-contacts.sql,
+calendar.sql, calendar-shares.sql, fix-calendar-sharing.sql, properties.sql,
+vehicles.sql, vehicle-tax.sql, vehicle-insurance-update.sql
+
+## Key files
+- `src/app/layout.tsx` — includes MobileBottomNav
+- `src/app/mobile.css` — all mobile responsive overrides
+- `src/components/MobileBottomNav.tsx` — Home/Tasks/Calendar/⋯More tabs
+- `src/app/api/keepalive/route.ts` — DB keepalive endpoint (cron-job.org every 5 days)
+
+## In progress / next ideas
+- Property sub-modules: Assets, Utilities, Policies (placeholders exist)
+- Dashboard weather + news (deferred)
