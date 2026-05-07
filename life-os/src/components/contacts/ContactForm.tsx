@@ -36,13 +36,12 @@ export default function ContactForm({
 
   const handleSave = async () => {
     if (!firstName.trim()) { setError('First name is required.'); return }
-    if (!lastName.trim()) { setError('Last name is required.'); return }
     setSaving(true)
     setError('')
 
     const payload = {
       first_name: firstName.trim(),
-      last_name: lastName.trim(),
+      last_name: lastName.trim() || null,
       email: email.trim() || null,
       date_of_birth: dob || null,
       phone_mobile: phoneMobile.trim() || null,
@@ -95,7 +94,7 @@ export default function ContactForm({
               <input className="input-field" value={firstName} onChange={e => setFirstName(e.target.value)} autoFocus />
             </div>
             <div className="field-group">
-              <label className="label">Last name <span className="req">*</span></label>
+              <label className="label">Last name</label>
               <input className="input-field" value={lastName} onChange={e => setLastName(e.target.value)} />
             </div>
           </div>
