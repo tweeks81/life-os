@@ -13,6 +13,12 @@ const ROLE_OPTIONS = [
   { value: 'spouse', label: 'Spouse / Partner' },
 ] as const
 
+// Returns the storable UUID for a contact: its contact ID for regular contacts,
+// or its linked user UUID for linked contacts (profile ID, not the "linked-xxx" string)
+function effectiveId(e: ContactEntry): string {
+  return e.type === 'linked' ? (e.linkedUserId ?? e.id) : e.id
+}
+
 export default function RelationshipPicker({
   userId,
   currentEntry,
@@ -34,35 +40,36 @@ export default function RelationshipPicker({
   const [role, setRole] = useState<string>('child')
   const [saving, setSaving] = useState(false)
 
-  // Contacts already related to this entry (either direction)
+  const currentEffectiveId = effectiveId(currentEntry)
+
+  // IDs already related to this entry (either direction), using storable UUIDs
   const relatedIds = useMemo(() => {
     const ids = new Set<string>()
     for (const rel of relationships) {
-      if (rel.contact_a_id === currentEntry.id) ids.add(rel.contact_b_id)
-      if (rel.contact_b_id === currentEntry.id) ids.add(rel.contact_a_id)
+      if (rel.contact_a_id === currentEffectiveId) ids.add(rel.contact_b_id)
+      if (rel.contact_b_id === currentEffectiveId) ids.add(rel.contact_a_id)
     }
     return ids
-  }, [relationships, currentEntry.id])
+  }, [relationships, currentEffectiveId])
 
   const available = useMemo(() => {
     const q = search.toLowerCase().trim()
     return allEntries.filter(e => {
-      if (e.type !== 'contact') return false
-      if (e.id === currentEntry.id) return false
-      if (relatedIds.has(e.id)) return false
+      if (effectiveId(e) === currentEffectiveId) return false
+      if (relatedIds.has(effectiveId(e))) return false
       if (!q) return true
       const name = `${e.first_name} ${e.last_name ?? ''}`.toLowerCase()
       return name.includes(q) || e.email?.toLowerCase().includes(q)
     })
-  }, [allEntries, currentEntry.id, relatedIds, search])
+  }, [allEntries, currentEffectiveId, relatedIds, search])
 
   const handleSave = async () => {
     if (!selectedEntry) return
     setSaving(true)
     await (supabase as any).from('contact_relationships').insert({
       user_id: userId,
-      contact_a_id: currentEntry.id,
-      contact_b_id: selectedEntry.id,
+      contact_a_id: currentEffectiveId,
+      contact_b_id: effectiveId(selectedEntry),
       b_role: role,
     })
     setSaving(false)
