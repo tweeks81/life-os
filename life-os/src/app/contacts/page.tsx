@@ -12,11 +12,13 @@ export default async function ContactsPage() {
     { data: profile },
     { data: shareRows },
     { data: linkedRaw },
+    { data: nameOverrides },
   ] = await Promise.all([
     supabase.from('contacts').select('*').order('first_name').order('last_name'),
     supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
     (supabase as any).from('contact_shares').select('id, contact_id, shared_with_email, created_at').eq('owner_id', user.id),
     (supabase as any).from('linked_contacts').select('id, user_id, linked_user_id, created_at').eq('user_id', user.id),
+    (supabase as any).from('contact_name_overrides').select('id, contact_id, linked_user_id, first_name, last_name').eq('user_id', user.id),
   ])
 
   // Fetch profiles for linked users separately
@@ -45,6 +47,7 @@ export default async function ContactsPage() {
       initialContacts={contacts ?? []}
       initialContactShares={contactShares}
       initialLinked={linked ?? []}
+      initialNameOverrides={nameOverrides ?? []}
       userId={user.id}
       profile={profile}
     />

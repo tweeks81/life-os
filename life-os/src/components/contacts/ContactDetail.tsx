@@ -1,5 +1,7 @@
 'use client'
 
+import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { contactAvatarColour } from '@/types/contacts'
 import { ContactEntry } from './ContactsShell'
 import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
@@ -13,6 +15,7 @@ export default function ContactDetail({
   onEdit,
   onDelete,
   onClose,
+  onNameOverrideSaved,
 }: {
   entry: ContactEntry
   userId: string
@@ -21,7 +24,9 @@ export default function ContactDetail({
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
+  onNameOverrideSaved: () => void
 }) {
+  const supabase = createClient()
   const isOwnContact = entry.type === 'contact' && entry.contact?.user_id === userId
   const isLinked = entry.isLinked
   const isSharedContact = entry.type === 'contact' && entry.contact?.user_id !== userId
@@ -30,7 +35,6 @@ export default function ContactDetail({
   const displayName = `${entry.first_name} ${entry.last_name ?? ''}`.trim()
 
   const hasAddress = contact?.address_line1 || contact?.address_town || contact?.address_city || contact?.address_postcode
-  const hasPhones = contact?.phone_mobile || contact?.phone_home || contact?.phone_work
 
   const formatDate = (d: string) =>
     new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
@@ -51,6 +55,55 @@ export default function ContactDetail({
   const dob = entry.date_of_birth
   const email = entry.email
 
+  // Name override state
+  const [editingName, setEditingName] = useState(false)
+  const [overrideFirst, setOverrideFirst] = useState('')
+  const [overrideLast, setOverrideLast] = useState('')
+  const [savingName, setSavingName] = useState(false)
+
+  const startEditName = () => {
+    setOverrideFirst(entry.nameOverride?.first_name ?? entry.originalFirstName)
+    setOverrideLast(entry.nameOverride?.last_name ?? entry.originalLastName ?? '')
+    setEditingName(true)
+  }
+
+  const cancelEditName = () => setEditingName(false)
+
+  const saveNameOverride = async () => {
+    if (!overrideFirst.trim()) return
+    setSavingName(true)
+
+    const payload = {
+      user_id: userId,
+      first_name: overrideFirst.trim(),
+      last_name: overrideLast.trim() || null,
+      updated_at: new Date().toISOString(),
+      ...(entry.type === 'linked'
+        ? { linked_user_id: entry.linkedUserId, contact_id: null }
+        : { contact_id: entry.id, linked_user_id: null }),
+    }
+
+    if (entry.nameOverride) {
+      await (supabase as any)
+        .from('contact_name_overrides')
+        .update({ first_name: payload.first_name, last_name: payload.last_name, updated_at: payload.updated_at })
+        .eq('id', entry.nameOverride.id)
+    } else {
+      await (supabase as any).from('contact_name_overrides').insert(payload)
+    }
+
+    setSavingName(false)
+    setEditingName(false)
+    onNameOverrideSaved()
+  }
+
+  const removeNameOverride = async () => {
+    if (!entry.nameOverride) return
+    await (supabase as any).from('contact_name_overrides').delete().eq('id', entry.nameOverride.id)
+    setEditingName(false)
+    onNameOverrideSaved()
+  }
+
   return (
     <div className="detail-panel">
       <div className="detail-header">
@@ -60,13 +113,18 @@ export default function ContactDetail({
           ) : (
             <div
               className="detail-avatar"
-              style={{ background: contactAvatarColour({ first_name: entry.first_name, last_name: entry.last_name ?? '' } as any) }}
+              style={{ background: contactAvatarColour({ first_name: entry.originalFirstName, last_name: entry.originalLastName ?? '' } as any) }}
             >
               {entry.first_name[0]?.toUpperCase()}{(entry.last_name ?? '')[0]?.toUpperCase()}
             </div>
           )}
           <div className="detail-name-block">
             <h2 className="detail-name">{displayName}</h2>
+            {entry.nameOverride && (
+              <div className="detail-orig-name">
+                Originally: {entry.originalFirstName} {entry.originalLastName ?? ''}
+              </div>
+            )}
             <div className="detail-badges">
               {isLinked && <span className="badge linked-badge">🔗 Linked contact</span>}
               {isSharedContact && <span className="badge shared-badge">👥 Shared with you</span>}
@@ -91,6 +149,53 @@ export default function ContactDetail({
           <div className="linked-notice">
             <span className="linked-notice-icon">🔗</span>
             <p>This contact is linked to a Life OS account. Their details are kept up to date automatically. To remove this connection, visit your <strong>Profile</strong> page.</p>
+          </div>
+        )}
+
+        {/* My name for this contact */}
+        {entry.canSetName && (
+          <div className="detail-section">
+            <div className="section-heading">My name for this contact</div>
+            {editingName ? (
+              <div className="name-override-form">
+                <div className="name-override-inputs">
+                  <input
+                    className="input-field override-input"
+                    placeholder="First name"
+                    value={overrideFirst}
+                    onChange={e => setOverrideFirst(e.target.value)}
+                    autoFocus
+                  />
+                  <input
+                    className="input-field override-input"
+                    placeholder="Last name (optional)"
+                    value={overrideLast}
+                    onChange={e => setOverrideLast(e.target.value)}
+                  />
+                </div>
+                <div className="name-override-actions">
+                  <button className="btn-primary override-save-btn" onClick={saveNameOverride} disabled={savingName || !overrideFirst.trim()}>
+                    {savingName ? 'Saving…' : 'Save'}
+                  </button>
+                  <button className="btn-secondary override-save-btn" onClick={cancelEditName}>Cancel</button>
+                  {entry.nameOverride && (
+                    <button className="override-remove-btn" onClick={removeNameOverride}>Use original name</button>
+                  )}
+                </div>
+              </div>
+            ) : (
+              <div className="name-override-display">
+                <span className="name-override-value">
+                  {entry.nameOverride
+                    ? `${entry.nameOverride.first_name} ${entry.nameOverride.last_name ?? ''}`.trim()
+                    : <span className="name-override-none">Using original name ({entry.originalFirstName} {entry.originalLastName ?? ''})</span>
+                  }
+                </span>
+                <button className="btn-secondary override-edit-btn" onClick={startEditName}>
+                  {entry.nameOverride ? 'Change' : 'Set custom name'}
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -192,7 +297,8 @@ export default function ContactDetail({
         .detail-header-left { display: flex; align-items: center; gap: 0.875rem; flex: 1; min-width: 0; }
         .detail-avatar { width: 48px; height: 48px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; font-weight: 700; color: white; flex-shrink: 0; }
         .detail-name-block { min-width: 0; }
-        .detail-name { font-size: 1.125rem; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 0.2rem; }
+        .detail-name { font-size: 1.125rem; font-weight: 600; line-height: 1.2; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-bottom: 0.1rem; }
+        .detail-orig-name { font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.2rem; font-style: italic; }
         .detail-badges { display: flex; gap: 0.375rem; flex-wrap: wrap; }
         .badge { font-size: 0.72rem; font-weight: 600; padding: 0.15rem 0.45rem; border-radius: 5px; display: inline-block; }
         .linked-badge { background: #f0fdf4; color: #16a34a; border: 1px solid #bbf7d0; }
@@ -217,6 +323,17 @@ export default function ContactDetail({
         .field-link:hover { text-decoration: underline; }
         .address-block { font-size: 0.9rem; color: var(--text-primary); line-height: 1.7; }
         .notes-text { font-size: 0.875rem; color: var(--text-secondary); line-height: 1.6; white-space: pre-wrap; }
+        .name-override-display { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; }
+        .name-override-value { font-size: 0.9rem; color: var(--text-primary); font-weight: 500; flex: 1; min-width: 0; }
+        .name-override-none { color: var(--text-muted); font-weight: 400; font-style: italic; }
+        .override-edit-btn { font-size: 0.75rem; padding: 0.25rem 0.625rem; flex-shrink: 0; }
+        .name-override-form { display: flex; flex-direction: column; gap: 0.5rem; }
+        .name-override-inputs { display: flex; gap: 0.5rem; }
+        .override-input { flex: 1; font-size: 0.875rem; padding: 0.4rem 0.625rem; }
+        .name-override-actions { display: flex; align-items: center; gap: 0.5rem; }
+        .override-save-btn { font-size: 0.8125rem; padding: 0.35rem 0.75rem; }
+        .override-remove-btn { font-size: 0.75rem; color: var(--text-muted); background: none; border: none; cursor: pointer; padding: 0.25rem 0; text-decoration: underline; margin-left: auto; }
+        .override-remove-btn:hover { color: var(--text-primary); }
       `}</style>
     </div>
   )
