@@ -91,9 +91,6 @@ export default async function DashboardPage() {
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
-console.log('validInsurance:', validInsurance)
-console.log('today:', new Date().toISOString().split('T')[0])
-
   return (
     <DashboardClient
       profile={profile}

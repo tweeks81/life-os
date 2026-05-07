@@ -19,11 +19,11 @@ type Tab = 'info' | 'mot' | 'service' | 'maintenance' | 'policies' | 'tax'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'info', label: 'Info', icon: '🚗' },
+  { id: 'policies', label: 'Insurance', icon: '🛡' },
+  { id: 'tax', label: 'Tax', icon: '📋' },
   { id: 'mot', label: 'MOT', icon: '✅' },
   { id: 'service', label: 'Service', icon: '🔧' },
   { id: 'maintenance', label: 'Maintenance', icon: '🛠' },
-  { id: 'policies', label: 'Insurance', icon: '🛡' },
-  { id: 'tax', label: 'Tax', icon: '📋' },
 ]
 
 export default function VehicleDetail({
@@ -42,6 +42,7 @@ export default function VehicleDetail({
   const supabase = createClient()
   const isOwner = vehicle.user_id === userId
   const [tab, setTab] = useState<Tab>('info')
+  const [linkedPeople, setLinkedPeople] = useState<Record<string, string>>({}) // id -> name
   const [mots, setMots] = useState<VehicleMot[]>([])
   const [services, setServices] = useState<VehicleService[]>([])
   const [maintenance, setMaintenance] = useState<VehicleMaintenance[]>([])
@@ -78,6 +79,35 @@ export default function VehicleDetail({
       setTaxRecords(data ?? [])
     }
   }, [supabase, vehicle.id])
+
+  // Load linked people names for policy holder display
+  useEffect(() => {
+    ;(async () => {
+      const { data: linkedRaw } = await (supabase as any)
+        .from('linked_contacts')
+        .select('linked_user_id')
+        .eq('user_id', userId)
+      const linkedIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
+      if (linkedIds.length === 0) return
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .in('id', linkedIds)
+      const map: Record<string, string> = {}
+      for (const p of profiles ?? []) {
+        map[p.id] = p.full_name ?? p.id
+      }
+      setLinkedPeople(map)
+    })()
+  }, [supabase, userId])
+
+  // Load all data on mount so info tab snapshot is always populated
+  useEffect(() => {
+    loadTab('policies')
+    loadTab('tax')
+    loadTab('mot')
+    loadTab('service')
+  }, [vehicle.id])
 
   useEffect(() => {
     loadTab(tab)
@@ -147,41 +177,35 @@ export default function VehicleDetail({
               {vehicle.reg_number && <InfoField label="Registration" value={vehicle.reg_number.toUpperCase()} mono />}
             </div>
 
-            {/* Quick status */}
-            <div className="status-cards">
-              {nextMot && (
-                <div className={`status-card ${isExpired(nextMot.expiry_date) ? 'expired' : isExpiringSoon(nextMot.expiry_date) ? 'warning' : 'ok'}`}>
-                  <span className="status-card-icon">✅</span>
-                  <div>
-                    <div className="status-card-label">MOT</div>
-                    <div className="status-card-value">
-                      {isExpired(nextMot.expiry_date) ? 'EXPIRED' : `Expires ${fmt(nextMot.expiry_date)}`}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {(currentTax || taxExpired) && (
-                <div className={`status-card ${taxExpired ? 'expired' : isExpiringSoon(currentTax!.expiry_date, 30) ? 'warning' : 'ok'}`}>
-                  <span className="status-card-icon">📋</span>
-                  <div>
-                    <div className="status-card-label">Tax</div>
-                    <div className="status-card-value">
-                      {taxExpired ? 'NO VALID TAX' : `Expires ${fmt(currentTax!.expiry_date)}`}
-                    </div>
-                  </div>
-                </div>
-              )}
-              {(currentInsurance || insuranceExpired) && (
-                <div className={`status-card ${insuranceExpired ? 'expired' : isExpiringSoon(currentInsurance!.end_date, 30) ? 'warning' : 'ok'}`}>
-                  <span className="status-card-icon">🛡</span>
-                  <div>
-                    <div className="status-card-label">Insurance</div>
-                    <div className="status-card-value">
-                      {insuranceExpired ? 'NO VALID INSURANCE' : `Expires ${fmt(currentInsurance!.end_date)}`}
-                    </div>
-                  </div>
-                </div>
-              )}
+            {/* Quick snapshot */}
+            <div className="snapshot-section">
+              <div className="snapshot-heading">Status snapshot</div>
+              <div className="snapshot-rows">
+                <SnapshotRow
+                  icon="🛡"
+                  label="Insurance"
+                  value={insuranceExpired ? 'No valid insurance' : currentInsurance ? `${currentInsurance.insurer ?? 'Insured'} — expires ${fmt(currentInsurance.end_date)}` : 'Not recorded'}
+                  status={insuranceExpired ? 'expired' : currentInsurance ? (isExpiringSoon(currentInsurance.end_date, 30) ? 'warning' : 'ok') : 'none'}
+                />
+                <SnapshotRow
+                  icon="📋"
+                  label="Tax"
+                  value={taxExpired ? 'No valid tax' : currentTax ? `Expires ${fmt(currentTax.expiry_date)}` : 'Not recorded'}
+                  status={taxExpired ? 'expired' : currentTax ? (isExpiringSoon(currentTax.expiry_date, 30) ? 'warning' : 'ok') : 'none'}
+                />
+                <SnapshotRow
+                  icon="✅"
+                  label="MOT"
+                  value={nextMot ? (isExpired(nextMot.expiry_date) ? 'Expired' : `Expires ${fmt(nextMot.expiry_date)}`) : 'Not recorded'}
+                  status={nextMot ? (isExpired(nextMot.expiry_date) ? 'expired' : isExpiringSoon(nextMot.expiry_date) ? 'warning' : 'ok') : 'none'}
+                />
+                <SnapshotRow
+                  icon="🔧"
+                  label="Last service"
+                  value={services.length > 0 ? fmt(services[0].service_date) : 'Not recorded'}
+                  status={services.length > 0 ? 'ok' : 'none'}
+                />
+              </div>
             </div>
 
             {vehicle.notes && (
@@ -366,10 +390,10 @@ export default function VehicleDetail({
             ) : (
               policies.map(pol => (
                 <div key={pol.id} className={`record-card ${isExpired(pol.end_date) ? 'record-expired' : isExpiringSoon(pol.end_date) ? 'record-warning' : ''}`}>
-                  <div className="record-header">
-                    <div>
-                      <span className="record-title">{POLICY_TYPE_LABELS[pol.policy_type]}</span>
-                      {pol.insurer && <span className="record-subtitle"> — {pol.insurer}</span>}
+                  <div className="ins-header">
+                    <div className="ins-header-main">
+                      <span className="ins-provider">{pol.insurer ?? 'Insurance'}</span>
+                      {pol.coverage_type && <span className="ins-coverage">{COVERAGE_TYPE_LABELS[pol.coverage_type]}</span>}
                     </div>
                     {isOwner && (
                       <div className="record-actions">
@@ -379,18 +403,27 @@ export default function VehicleDetail({
                     )}
                   </div>
                   <div className="record-fields">
-                    {pol.coverage_type && <RecordField label="Coverage" value={COVERAGE_TYPE_LABELS[pol.coverage_type]} />}
                     {pol.policy_number && <RecordField label="Policy no." value={pol.policy_number} />}
                     <RecordField label="Start" value={fmt(pol.start_date)} />
                     <RecordField label="End" value={fmt(pol.end_date)} highlight={isExpired(pol.end_date) ? 'expired' : isExpiringSoon(pol.end_date) ? 'warning' : undefined} />
                     {pol.cost != null && <RecordField label="Premium" value={fmtCost(pol.cost)!} />}
                     {pol.excess != null && <RecordField label="Excess" value={fmtCost(pol.excess)!} />}
-                    {pol.policy_holder && pol.policy_holder !== 'me' && <RecordField label="Holder" value={pol.policy_holder} />}
+                    {pol.policy_holder && (
+                      <RecordField
+                        label="Policy holder"
+                        value={pol.policy_holder === 'me' ? 'Myself' : (linkedPeople[pol.policy_holder] ?? pol.policy_holder)}
+                      />
+                    )}
                     {pol.auto_renews && <RecordField label="Auto-renews" value="Yes" />}
                   </div>
                   {pol.named_drivers && pol.named_drivers.length > 0 && (
-                    <div className="record-fields">
-                      <RecordField label="Named drivers" value={pol.named_drivers.length.toString()} />
+                    <div className="named-drivers-row">
+                      <span className="record-field-label" style={{fontSize:'0.75rem',color:'var(--text-muted)'}}>Named drivers:</span>
+                      {pol.named_drivers.map(d => (
+                        <span key={d} className="driver-tag">
+                          {d === 'me' ? 'Myself' : (linkedPeople[d] ?? d)}
+                        </span>
+                      ))}
                     </div>
                   )}
                   {(() => {
@@ -495,6 +528,27 @@ export default function VehicleDetail({
         .empty-tab { text-align: center; padding: 2.5rem 1rem; font-size: 0.875rem; color: var(--text-muted); font-style: italic; }
         .inclusion-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; padding-top: 0.25rem; }
         .inclusion-tag { font-size: 0.7rem; background: #f0fdf4; color: #166534; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 500; border: 1px solid #bbf7d0; }
+        .snapshot-section { display: flex; flex-direction: column; gap: 0.5rem; }
+        .snapshot-heading { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
+        .snapshot-rows { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; }
+        .snapshot-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; background: white; border-bottom: 1px solid var(--border-light); }
+        .snapshot-row:last-child { border-bottom: none; }
+        .snapshot-row.ok { background: #f0fdf4; }
+        .snapshot-row.warning { background: #fffbeb; }
+        .snapshot-row.expired { background: #fef2f2; }
+        .snapshot-row.none { background: var(--cream); opacity: 0.7; }
+        .snapshot-icon { font-size: 1rem; width: 24px; text-align: center; flex-shrink: 0; }
+        .snapshot-label { font-size: 0.75rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); width: 80px; flex-shrink: 0; }
+        .snapshot-value { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); flex: 1; }
+        .snapshot-row.expired .snapshot-value { color: #dc2626; font-weight: 700; }
+        .snapshot-row.warning .snapshot-value { color: #b45309; font-weight: 600; }
+        .snapshot-row.none .snapshot-value { color: var(--text-muted); font-weight: 400; font-style: italic; }
+        .ins-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; margin-bottom: 0.125rem; }
+        .ins-header-main { display: flex; flex-direction: column; gap: 0.2rem; }
+        .ins-provider { font-size: 1rem; font-weight: 700; color: var(--deep-brown); }
+        .ins-coverage { font-size: 0.8rem; color: var(--text-secondary); }
+        .named-drivers-row { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+        .driver-tag { font-size: 0.75rem; background: #eff6ff; color: #2563eb; padding: 0.15rem 0.5rem; border-radius: 4px; font-weight: 500; border: 1px solid #bfdbfe; }
         .tax-warning { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.875rem 1rem; font-size: 0.875rem; font-weight: 600; color: #dc2626; line-height: 1.5; }
       `}</style>
     </div>
@@ -521,4 +575,16 @@ function RecordField({ label, value, highlight }: { label: string; value: string
 
 function EmptyTab({ label }: { label: string }) {
   return <div className="empty-tab">{label}</div>
+}
+
+function SnapshotRow({ icon, label, value, status }: {
+  icon: string; label: string; value: string; status: 'ok' | 'warning' | 'expired' | 'none'
+}) {
+  return (
+    <div className={`snapshot-row ${status}`}>
+      <span className="snapshot-icon">{icon}</span>
+      <span className="snapshot-label">{label}</span>
+      <span className="snapshot-value">{value}</span>
+    </div>
+  )
 }

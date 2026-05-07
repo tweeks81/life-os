@@ -8,6 +8,7 @@ export default function VehiclesList({
   selectedId,
   taxedIds,
   insuredIds,
+  shares,
   onSelect,
   onNew,
 }: {
@@ -16,6 +17,7 @@ export default function VehiclesList({
   selectedId: string | null
   taxedIds: Set<string>
   insuredIds: Set<string>
+  shares: Record<string, any[]>
   onSelect: (v: Vehicle) => void
   onNew: () => void
 }) {
@@ -38,6 +40,7 @@ export default function VehiclesList({
           vehicles.map(v => {
             const isTaxed = taxedIds.has(v.id)
             const isInsured = insuredIds.has(v.id)
+            const isShared = (shares[v.id] ?? []).length > 0
             const hasWarning = !isTaxed || !isInsured
             return (
               <button
@@ -50,6 +53,7 @@ export default function VehiclesList({
                   <div className="veh-name-row">
                     <span className="veh-name">{v.name}</span>
                     {v.user_id !== userId && <span className="shared-badge">👥</span>}
+                    {isShared && v.user_id === userId && <span className="shared-out-badge" title="Shared with others">👥</span>}
                   </div>
                   <span className="veh-sub">
                     {[v.make, v.model].filter(Boolean).join(' ') || VEHICLE_TYPE_LABELS[v.vehicle_type]}
@@ -87,6 +91,7 @@ export default function VehiclesList({
         .shared-badge { font-size: 0.75rem; }
         .veh-sub { font-size: 0.8rem; color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .veh-reg { font-size: 0.75rem; font-weight: 700; letter-spacing: 0.05em; background: #1a1a2e; color: #f5c518; padding: 0.1rem 0.5rem; border-radius: 4px; display: inline-block; width: fit-content; font-family: monospace; }
+        .shared-out-badge { font-size: 0.75rem; opacity: 0.6; }
         .untaxed-badge { font-size: 0.7rem; font-weight: 700; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; padding: 0.1rem 0.4rem; border-radius: 4px; display: inline-block; width: fit-content; }
         .mobile-bottom-spacer { height: 64px; flex-shrink: 0; }
       `}</style>

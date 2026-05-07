@@ -52,12 +52,6 @@ export default function VehiclesShell({
     setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
-const refreshInsuranceStatus = useCallback(async () => {
-    const today = new Date().toISOString().split('T')[0]
-    const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
-    setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
-  }, [supabase])
-
   const refreshShares = useCallback(async (vehicleId: string) => {
     const { data } = await (supabase as any)
       .from('vehicle_shares')
@@ -98,6 +92,7 @@ const refreshInsuranceStatus = useCallback(async () => {
           selectedId={selectedVehicle?.id ?? null}
           taxedIds={taxedIds}
           insuredIds={insuredIds}
+          shares={shares}
           onSelect={handleSelect}
           onNew={() => { setEditingVehicle(null); setShowForm(true) }}
         />
@@ -111,8 +106,6 @@ const refreshInsuranceStatus = useCallback(async () => {
             onEdit={() => { setEditingVehicle(selectedVehicle); setShowForm(true) }}
             onDelete={() => handleDelete(selectedVehicle.id)}
             onClose={() => setSelectedVehicle(null)}
-onTaxChanged={refreshTaxStatus}
-            onInsuranceChanged={refreshInsuranceStatus}
           />
         ) : (
           <div className="vehicles-empty">
