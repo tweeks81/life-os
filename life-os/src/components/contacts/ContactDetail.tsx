@@ -27,7 +27,7 @@ export default function ContactDetail({
   const isSharedContact = entry.type === 'contact' && entry.contact?.user_id !== userId
 
   const contact = entry.contact
-  const displayName = `${entry.first_name} ${entry.last_name}`.trim()
+  const displayName = `${entry.first_name} ${entry.last_name ?? ''}`.trim()
 
   const hasAddress = contact?.address_line1 || contact?.address_town || contact?.address_city || contact?.address_postcode
   const hasPhones = contact?.phone_mobile || contact?.phone_home || contact?.phone_work
@@ -60,9 +60,9 @@ export default function ContactDetail({
           ) : (
             <div
               className="detail-avatar"
-              style={{ background: contactAvatarColour({ first_name: entry.first_name, last_name: entry.last_name } as any) }}
+              style={{ background: contactAvatarColour({ first_name: entry.first_name, last_name: entry.last_name ?? '' } as any) }}
             >
-              {entry.first_name[0]?.toUpperCase()}{entry.last_name[0]?.toUpperCase()}
+              {entry.first_name[0]?.toUpperCase()}{(entry.last_name ?? '')[0]?.toUpperCase()}
             </div>
           )}
           <div className="detail-name-block">

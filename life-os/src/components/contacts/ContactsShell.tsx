@@ -16,7 +16,7 @@ export interface ContactEntry {
   linked?: LinkedContact
   id: string
   first_name: string
-  last_name: string
+  last_name: string | null
   email: string | null
   date_of_birth: string | null
   avatar_url: string | null
@@ -51,8 +51,8 @@ export default function ContactsShell({
     const { data } = await supabase
       .from('contacts')
       .select('*')
-      .order('last_name', { ascending: true })
       .order('first_name', { ascending: true })
+      .order('last_name', { ascending: true })
     if (data) setContacts(data as Contact[])
   }, [supabase])
 
@@ -112,7 +112,7 @@ export default function ContactsShell({
     }
 
     return entries.sort((a, b) =>
-      a.last_name.localeCompare(b.last_name) || a.first_name.localeCompare(b.first_name)
+      a.first_name.localeCompare(b.first_name) || (a.last_name ?? '').localeCompare(b.last_name ?? '')
     )
   }, [contacts, linked, userId])
 
