@@ -162,15 +162,22 @@ export default function ContactDetail({
   const [editingRelationships, setEditingRelationships] = useState(false)
 
   const contactRelationships = useMemo(() => {
-    if (entry.type !== 'contact') return []
-    const entryById = new Map(allEntries.filter(e => e.type === 'contact').map(e => [e.id, e]))
+    // Build lookup by storable UUID: regular contacts by id, linked contacts by linkedUserId
+    const entryById = new Map<string, ContactEntry>()
+    for (const e of allEntries) {
+      if (e.type === 'contact') entryById.set(e.id, e)
+      else if (e.type === 'linked' && e.linkedUserId) entryById.set(e.linkedUserId, e)
+    }
+
+    // The storable ID for the current entry
+    const currentId = entry.type === 'linked' ? (entry.linkedUserId ?? entry.id) : entry.id
     const result: { relId: string; relEntry: ContactEntry; role: string }[] = []
 
     for (const rel of relationships) {
-      if (rel.contact_a_id === entry.id) {
+      if (rel.contact_a_id === currentId) {
         const relEntry = entryById.get(rel.contact_b_id)
         if (relEntry) result.push({ relId: rel.id, relEntry, role: rel.b_role })
-      } else if (rel.contact_b_id === entry.id) {
+      } else if (rel.contact_b_id === currentId) {
         const relEntry = entryById.get(rel.contact_a_id)
         if (relEntry) result.push({ relId: rel.id, relEntry, role: INVERSE_ROLE[rel.b_role] ?? rel.b_role })
       }
@@ -340,8 +347,8 @@ export default function ContactDetail({
           </div>
         )}
 
-        {/* Relationships — for regular contacts only */}
-        {entry.type === 'contact' && (
+        {/* Relationships */}
+        {(entry.type === 'contact' || entry.type === 'linked') && (
           <div className="detail-section">
             <div className="rel-header">
               <div className="section-heading">Relationships</div>
