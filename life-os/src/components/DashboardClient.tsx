@@ -54,7 +54,6 @@ function formatDueDate(dateStr: string): { label: string; overdue: boolean } {
   return { label: `Due ${d.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}`, overdue: false }
 }
 
-// Group calendar events by day
 function groupEventsByDay(events: DashCalEvent[]) {
   const groups: Record<string, DashCalEvent[]> = {}
   for (const ev of events) {
@@ -122,7 +121,6 @@ export default function DashboardClient({
       <NavBar profile={profile} />
 
       <main className="dash-main">
-        {/* Header */}
         <div className="dash-header">
           <div className="dash-greeting-block">
             <p className="dash-greeting">{greeting},</p>
@@ -145,47 +143,44 @@ export default function DashboardClient({
           </div>
         </div>
 
-        {uninsuredVehicles.length > 0 && (
-          <div className="untaxed-warning">
-            <span className="untaxed-warning-icon">🛡</span>
-            <div className="untaxed-warning-content">
-              <strong>Vehicle insurance required</strong>
-              <span>
-                {uninsuredVehicles.map((v, i) => (
-                  <span key={v.id}>
-                    {v.name}{v.reg_number ? ` (${v.reg_number.toUpperCase()})` : ''}
-                    {i < uninsuredVehicles.length - 1 ? ', ' : ''}
-                  </span>
+        {(untaxedVehicles.length > 0 || uninsuredVehicles.length > 0) && (() => {
+          const allIds = Array.from(new Set([
+            ...untaxedVehicles.map(v => v.id),
+            ...uninsuredVehicles.map(v => v.id),
+          ]))
+          const untaxedSet = new Set(untaxedVehicles.map(v => v.id))
+          const uninsuredSet = new Set(uninsuredVehicles.map(v => v.id))
+          const rows = allIds.map(id => {
+            const v = untaxedVehicles.find(v => v.id === id) ?? uninsuredVehicles.find(v => v.id === id)!
+            const issues = [
+              untaxedSet.has(id) && 'no valid tax',
+              uninsuredSet.has(id) && 'no valid insurance',
+            ].filter(Boolean).join(', ')
+            return { ...v, issues }
+          })
+          return (
+            <div className="vehicle-alert">
+              <div className="vehicle-alert-header">
+                <span className="vehicle-alert-icon">⚠</span>
+                <strong>Vehicle action required</strong>
+                <a href="/vehicles" className="vehicle-alert-link">View vehicles →</a>
+              </div>
+              <div className="vehicle-alert-list">
+                {rows.map(v => (
+                  <div key={v.id} className="vehicle-alert-row">
+                    <span className="vehicle-alert-name">
+                      {v.name}{v.reg_number ? ` (${v.reg_number.toUpperCase()})` : ''}
+                    </span>
+                    <span className="vehicle-alert-issues">— {v.issues}</span>
+                  </div>
                 ))}
-                {uninsuredVehicles.length === 1 ? ' has no valid insurance.' : ' have no valid insurance.'}
-              </span>
+              </div>
             </div>
-            <a href="/vehicles" className="untaxed-warning-link">View →</a>
-          </div>
-        )}
-
-        {untaxedVehicles.length > 0 && (
-          <div className="untaxed-warning">
-            <span className="untaxed-warning-icon">⚠</span>
-            <div className="untaxed-warning-content">
-              <strong>Vehicle tax required</strong>
-              <span>
-                {untaxedVehicles.map((v, i) => (
-                  <span key={v.id}>
-                    {v.name}{v.reg_number ? ` (${v.reg_number.toUpperCase()})` : ''}
-                    {i < untaxedVehicles.length - 1 ? ', ' : ''}
-                  </span>
-                ))}
-                {untaxedVehicles.length === 1 ? ' has no valid tax.' : ' have no valid tax.'}
-              </span>
-            </div>
-            <a href="/vehicles" className="untaxed-warning-link">View →</a>
-          </div>
-        )}
+          )
+        })()}
 
         <div className="dash-columns">
 
-          {/* LEFT: Today */}
           <section className="dash-section">
             <div className="section-header">
               <h2 className="section-title">Today</h2>
@@ -228,7 +223,6 @@ export default function DashboardClient({
             )}
           </section>
 
-          {/* RIGHT: Coming up */}
           <section className="dash-section">
             <div className="section-header">
               <h2 className="section-title">Coming up</h2>
@@ -242,17 +236,13 @@ export default function DashboardClient({
               </div>
             )}
 
-            {/* Calendar events grouped by day */}
             {upcomingGrouped.map(([dateKey, events]) => (
               <div key={dateKey} className="day-group">
-                <div className="day-group-label">
-                  📅 {formatDay(dateKey)}
-                </div>
+                <div className="day-group-label">📅 {formatDay(dateKey)}</div>
                 {events.map(e => <CalEventRow key={e.id} event={e} />)}
               </div>
             ))}
 
-            {/* Upcoming tasks */}
             {upcomingTasks.length > 0 && (
               <div className="day-group">
                 <div className="day-group-label">✓ Upcoming tasks</div>
@@ -267,360 +257,64 @@ export default function DashboardClient({
       </main>
 
       <style>{`
-        .dash {
-          min-height: 100vh;
-          background: var(--cream);
-        }
-
-        .dash-main {
-          max-width: 1100px;
-          margin: 0 auto;
-          padding: 2rem 1.5rem 3rem;
-        }
-
-        .dash-header {
-          display: flex;
-          align-items: flex-end;
-          justify-content: space-between;
-          gap: 1.5rem;
-          margin-bottom: 2rem;
-          flex-wrap: wrap;
-        }
-
-        .dash-greeting-block {}
-
-        .dash-greeting {
-          font-size: 0.9375rem;
-          color: var(--text-muted);
-          margin-bottom: 0.125rem;
-        }
-
-        .dash-name {
-          font-size: 2.25rem;
-          font-weight: 600;
-          letter-spacing: -0.03em;
-          line-height: 1.1;
-          margin-bottom: 0.375rem;
-        }
-
-        .dash-date {
-          font-size: 0.875rem;
-          color: var(--text-secondary);
-        }
-
-        .dash-stats {
-          display: flex;
-          gap: 0.75rem;
-          flex-wrap: wrap;
-        }
-
-        .stat-card {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          padding: 0.75rem 1.25rem;
-          background: white;
-          border: 1px solid var(--border-light);
-          border-radius: 12px;
-          text-decoration: none;
-          transition: all 0.15s;
-          min-width: 80px;
-          box-shadow: 0 1px 4px var(--shadow-warm);
-        }
-
-        .stat-card:hover {
-          transform: translateY(-1px);
-          box-shadow: 0 4px 12px var(--shadow-warm-md);
-        }
-
-        .stat-num {
-          font-size: 1.5rem;
-          font-weight: 700;
-          font-family: var(--font-display);
-          color: var(--deep-brown);
-          line-height: 1.2;
-        }
-
-        .stat-label {
-          font-size: 0.6875rem;
-          color: var(--text-muted);
-          text-transform: uppercase;
-          letter-spacing: 0.06em;
-          font-weight: 500;
-          white-space: nowrap;
-        }
-
-        .dash-columns {
-          display: grid;
-          grid-template-columns: 1fr 1fr;
-          gap: 1.5rem;
-          align-items: start;
-        }
-
-        .dash-section {
-          display: flex;
-          flex-direction: column;
-          gap: 1rem;
-        }
-
-        .section-header {
-          display: flex;
-          align-items: baseline;
-          justify-content: space-between;
-          padding-bottom: 0.625rem;
-          border-bottom: 2px solid var(--parchment);
-        }
-
-        .section-title {
-          font-size: 1.125rem;
-          font-weight: 600;
-          letter-spacing: -0.01em;
-        }
-
-        .section-date {
-          font-size: 0.8125rem;
-          color: var(--text-muted);
-        }
-
-        .empty-day {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.5rem;
-          padding: 2rem 1rem;
-          text-align: center;
-          background: white;
-          border-radius: 12px;
-          border: 1px solid var(--border-light);
-        }
-
-        .empty-icon {
-          font-size: 1.5rem;
-          color: var(--parchment);
-        }
-
-        .empty-day p {
-          font-size: 0.875rem;
-          color: var(--text-muted);
-          font-style: italic;
-        }
-
-        .day-group {
-          display: flex;
-          flex-direction: column;
-          gap: 0.375rem;
-        }
-
-        .day-group-label {
-          font-size: 0.75rem;
-          font-weight: 600;
-          color: var(--text-secondary);
-          letter-spacing: 0.02em;
-          padding: 0.125rem 0;
-        }
-
+        .dash { min-height: 100vh; background: var(--cream); }
+        .dash-main { max-width: 1100px; margin: 0 auto; padding: 2rem 1.5rem 3rem; }
+        .dash-header { display: flex; align-items: flex-end; justify-content: space-between; gap: 1.5rem; margin-bottom: 2rem; flex-wrap: wrap; }
+        .dash-greeting { font-size: 0.9375rem; color: var(--text-muted); margin-bottom: 0.125rem; }
+        .dash-name { font-size: 2.25rem; font-weight: 600; letter-spacing: -0.03em; line-height: 1.1; margin-bottom: 0.375rem; }
+        .dash-date { font-size: 0.875rem; color: var(--text-secondary); }
+        .dash-stats { display: flex; gap: 0.75rem; flex-wrap: wrap; }
+        .stat-card { display: flex; flex-direction: column; align-items: center; padding: 0.75rem 1.25rem; background: white; border: 1px solid var(--border-light); border-radius: 12px; text-decoration: none; transition: all 0.15s; min-width: 80px; box-shadow: 0 1px 4px var(--shadow-warm); }
+        .stat-card:hover { transform: translateY(-1px); box-shadow: 0 4px 12px var(--shadow-warm-md); }
+        .stat-num { font-size: 1.5rem; font-weight: 700; font-family: var(--font-display); color: var(--deep-brown); line-height: 1.2; }
+        .stat-label { font-size: 0.6875rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.06em; font-weight: 500; white-space: nowrap; }
+        .dash-columns { display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; align-items: start; }
+        .dash-section { display: flex; flex-direction: column; gap: 1rem; }
+        .section-header { display: flex; align-items: baseline; justify-content: space-between; padding-bottom: 0.625rem; border-bottom: 2px solid var(--parchment); }
+        .section-title { font-size: 1.125rem; font-weight: 600; letter-spacing: -0.01em; }
+        .section-date { font-size: 0.8125rem; color: var(--text-muted); }
+        .empty-day { display: flex; flex-direction: column; align-items: center; gap: 0.5rem; padding: 2rem 1rem; text-align: center; background: white; border-radius: 12px; border: 1px solid var(--border-light); }
+        .empty-icon { font-size: 1.5rem; color: var(--parchment); }
+        .empty-day p { font-size: 0.875rem; color: var(--text-muted); font-style: italic; }
+        .day-group { display: flex; flex-direction: column; gap: 0.375rem; }
+        .day-group-label { font-size: 0.75rem; font-weight: 600; color: var(--text-secondary); letter-spacing: 0.02em; padding: 0.125rem 0; }
         .overdue-label { color: #dc2626; }
         .urgent-label { color: #dc2626; }
-
-        /* Task row */
-        .task-row {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.625rem 0.875rem;
-          background: white;
-          border: 1px solid var(--border-light);
-          border-radius: 10px;
-          text-decoration: none;
-          color: inherit;
-          transition: all 0.15s;
-        }
-
-        .task-row:hover {
-          border-color: var(--parchment);
-          box-shadow: 0 2px 8px var(--shadow-warm);
-          transform: translateY(-1px);
-        }
-
-        .task-priority-bar {
-          width: 3px;
-          height: 100%;
-          min-height: 32px;
-          border-radius: 2px;
-          flex-shrink: 0;
-          align-self: stretch;
-        }
-
-        .task-row-content {
-          flex: 1;
-          min-width: 0;
-          display: flex;
-          flex-direction: column;
-          gap: 0.2rem;
-        }
-
-        .task-row-title {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .task-row-meta {
-          display: flex;
-          align-items: center;
-          gap: 0.375rem;
-          flex-wrap: wrap;
-        }
-
-        .task-meta-pill {
-          font-size: 0.6875rem;
-          padding: 0.1rem 0.4rem;
-          border-radius: 4px;
-          font-weight: 500;
-        }
-
-        .task-due-pill {
-          font-size: 0.6875rem;
-          font-weight: 600;
-        }
-
-        .task-due-overdue {
-          color: #dc2626;
-        }
-
-        .task-due-ok {
-          color: var(--text-muted);
-        }
-
-        /* Calendar event row */
-        .cal-row {
-          display: flex;
-          align-items: center;
-          gap: 0.75rem;
-          padding: 0.625rem 0.875rem;
-          background: white;
-          border: 1px solid var(--border-light);
-          border-radius: 10px;
-          transition: all 0.15s;
-        }
-
-        .cal-row:hover {
-          border-color: var(--parchment);
-          box-shadow: 0 2px 8px var(--shadow-warm);
-        }
-
-        .cal-type-dot {
-          width: 8px;
-          height: 8px;
-          border-radius: 50%;
-          flex-shrink: 0;
-        }
-
-        .cal-row-content {
-          flex: 1;
-          min-width: 0;
-        }
-
-        .cal-row-title {
-          font-size: 0.875rem;
-          font-weight: 500;
-          color: var(--text-primary);
-          white-space: nowrap;
-          overflow: hidden;
-          text-overflow: ellipsis;
-        }
-
-        .cal-row-type {
-          font-size: 0.6875rem;
-          color: var(--text-muted);
-          margin-top: 0.1rem;
-        }
-
-        .untaxed-warning {
-          display: flex;
-          align-items: center;
-          gap: 0.875rem;
-          padding: 0.875rem 1.25rem;
-          background: #fef2f2;
-          border: 1.5px solid #fca5a5;
-          border-radius: 12px;
-          margin-bottom: 1.5rem;
-          animation: fadeUp 0.4s ease;
-        }
-        .untaxed-warning-icon {
-          font-size: 1.375rem;
-          flex-shrink: 0;
-        }
-        .untaxed-warning-content {
-          flex: 1;
-          display: flex;
-          flex-direction: column;
-          gap: 0.125rem;
-          font-size: 0.875rem;
-          color: #991b1b;
-          line-height: 1.4;
-        }
-        .untaxed-warning-content strong {
-          font-weight: 700;
-          font-size: 0.9rem;
-        }
-        .untaxed-warning-link {
-          font-size: 0.875rem;
-          font-weight: 600;
-          color: #dc2626;
-          text-decoration: none;
-          white-space: nowrap;
-          flex-shrink: 0;
-          padding: 0.375rem 0.75rem;
-          border: 1.5px solid #fca5a5;
-          border-radius: 8px;
-          transition: all 0.15s;
-        }
-        .untaxed-warning-link:hover {
-          background: #dc2626;
-          color: white;
-          border-color: #dc2626;
-        }
-
-        /* Mobile */
+        .task-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; background: white; border: 1px solid var(--border-light); border-radius: 10px; text-decoration: none; color: inherit; transition: all 0.15s; }
+        .task-row:hover { border-color: var(--parchment); box-shadow: 0 2px 8px var(--shadow-warm); transform: translateY(-1px); }
+        .task-priority-bar { width: 3px; height: 100%; min-height: 32px; border-radius: 2px; flex-shrink: 0; align-self: stretch; }
+        .task-row-content { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.2rem; }
+        .task-row-title { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .task-row-meta { display: flex; align-items: center; gap: 0.375rem; flex-wrap: wrap; }
+        .task-meta-pill { font-size: 0.6875rem; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 500; }
+        .task-due-pill { font-size: 0.6875rem; font-weight: 600; }
+        .task-due-overdue { color: #dc2626; }
+        .task-due-ok { color: var(--text-muted); }
+        .cal-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.625rem 0.875rem; background: white; border: 1px solid var(--border-light); border-radius: 10px; transition: all 0.15s; }
+        .cal-row:hover { border-color: var(--parchment); box-shadow: 0 2px 8px var(--shadow-warm); }
+        .cal-type-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+        .cal-row-content { flex: 1; min-width: 0; }
+        .cal-row-title { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cal-row-type { font-size: 0.6875rem; color: var(--text-muted); margin-top: 0.1rem; }
+        .vehicle-alert { background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 12px; padding: 0.875rem 1.25rem; margin-bottom: 1.5rem; animation: fadeUp 0.4s ease; display: flex; flex-direction: column; gap: 0.625rem; }
+        .vehicle-alert-header { display: flex; align-items: center; gap: 0.5rem; }
+        .vehicle-alert-icon { font-size: 1rem; flex-shrink: 0; }
+        .vehicle-alert-header strong { font-size: 0.9rem; font-weight: 700; color: #991b1b; flex: 1; }
+        .vehicle-alert-link { font-size: 0.8125rem; font-weight: 600; color: #dc2626; text-decoration: none; padding: 0.25rem 0.625rem; border: 1.5px solid #fca5a5; border-radius: 6px; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+        .vehicle-alert-link:hover { background: #dc2626; color: white; border-color: #dc2626; }
+        .vehicle-alert-list { display: flex; flex-direction: column; gap: 0; }
+        .vehicle-alert-row { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; padding: 0.375rem 0; border-top: 1px solid #fecaca; }
+        .vehicle-alert-row:first-child { border-top: none; }
+        .vehicle-alert-name { font-weight: 600; color: #7f1d1d; white-space: nowrap; }
+        .vehicle-alert-issues { color: #991b1b; }
         @media (max-width: 768px) {
-          .dash-main {
-            padding: 1.25rem 1rem 2rem;
-          }
-
-          .dash-header {
-            flex-direction: column;
-            align-items: flex-start;
-            gap: 1rem;
-            margin-bottom: 1.5rem;
-          }
-
-          .dash-name {
-            font-size: 1.75rem !important;
-          }
-
-          .dash-stats {
-            width: 100%;
-            gap: 0.5rem;
-          }
-
-          .stat-card {
-            flex: 1;
-            min-width: 0;
-            padding: 0.625rem 0.5rem;
-          }
-
-          .stat-num {
-            font-size: 1.25rem !important;
-          }
-
-          .dash-columns {
-            grid-template-columns: 1fr !important;
-            gap: 1.5rem;
-          }
+          .dash-main { padding: 1.25rem 1rem 2rem; }
+          .dash-header { flex-direction: column; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
+          .dash-name { font-size: 1.75rem !important; }
+          .dash-stats { width: 100%; gap: 0.5rem; }
+          .stat-card { flex: 1; min-width: 0; padding: 0.625rem 0.5rem; }
+          .stat-num { font-size: 1.25rem !important; }
+          .dash-columns { grid-template-columns: 1fr !important; gap: 1.5rem; }
         }
       `}</style>
     </div>
@@ -638,27 +332,19 @@ function TaskRow({ task }: { task: DashTask }) {
       <div className="task-row-content">
         <div className="task-row-title">{task.title}</div>
         <div className="task-row-meta">
-          <span
-            className="task-meta-pill"
-            style={{ background: bg, color: colour }}
-          >
+          <span className="task-meta-pill" style={{ background: bg, color: colour }}>
             {PRIORITY_LABELS[task.priority]}
           </span>
           {task.project && (
             <span
               className="task-meta-pill"
-              style={{
-                background: (task.project.colour ?? '#8b6b4a') + '22',
-                color: task.project.colour ?? '#8b6b4a',
-              }}
+              style={{ background: (task.project.colour ?? '#8b6b4a') + '22', color: task.project.colour ?? '#8b6b4a' }}
             >
               {task.project.name}
             </span>
           )}
           {due && (
-            <span
-              className={`task-due-pill ${due.overdue ? 'task-due-overdue' : 'task-due-ok'}`}
-            >
+            <span className={`task-due-pill ${due.overdue ? 'task-due-overdue' : 'task-due-ok'}`}>
               {due.overdue ? '⚠ ' : ''}{due.label}
             </span>
           )}
@@ -670,7 +356,6 @@ function TaskRow({ task }: { task: DashTask }) {
 
 function CalEventRow({ event }: { event: DashCalEvent }) {
   const colour = EVENT_TYPE_COLOURS[event.type]
-
   return (
     <Link href="/calendar" className="cal-row">
       <div className="cal-type-dot" style={{ background: colour }} />
