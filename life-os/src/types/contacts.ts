@@ -14,6 +14,7 @@ export interface Contact {
   address_city: string | null
   address_postcode: string | null
   notes: string | null
+  is_self: boolean
   created_at: string
   updated_at: string
 }

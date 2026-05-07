@@ -22,10 +22,13 @@ export default function ContactsList({
   onSelectEntry: (e: ContactEntry) => void
   onNewContact: () => void
 }) {
+  const selfEntry = useMemo(() => entries.find(e => e.isSelf), [entries])
+
   const filtered = useMemo(() => {
-    if (!search.trim()) return entries
+    const others = entries.filter(e => !e.isSelf)
+    if (!search.trim()) return others
     const q = search.toLowerCase()
-    return entries.filter(e =>
+    return others.filter(e =>
       e.first_name.toLowerCase().includes(q) ||
       (e.last_name ?? '').toLowerCase().includes(q) ||
       e.email?.toLowerCase().includes(q)
@@ -41,6 +44,36 @@ export default function ContactsList({
     }
     return Object.entries(groups).sort(([a], [b]) => a.localeCompare(b))
   }, [filtered])
+
+  const renderRow = (entry: ContactEntry) => {
+    const displayName = `${entry.first_name} ${entry.last_name ?? ''}`.trim()
+    const isSharedContact = entry.type === 'contact' && entry.contact?.user_id !== userId
+
+    return (
+      <button
+        key={entry.id}
+        className={`contact-row ${selectedId === entry.id ? 'selected' : ''}`}
+        onClick={() => onSelectEntry(entry)}
+      >
+        {entry.isLinked || entry.avatar_url ? (
+          <Avatar url={entry.avatar_url} name={displayName} size={36} />
+        ) : (
+          <div
+            className="contact-avatar"
+            style={{ background: contactAvatarColour({ first_name: entry.originalFirstName, last_name: entry.originalLastName ?? '' } as any) }}
+          >
+            {entry.first_name[0]?.toUpperCase()}{(entry.last_name ?? '')[0]?.toUpperCase()}
+          </div>
+        )}
+        <div className="contact-info">
+          <span className="contact-name">{displayName}</span>
+          {entry.email && <span className="contact-sub">{entry.email}</span>}
+        </div>
+        {entry.isLinked && <span className="badge linked-badge" title="Linked Life OS user">🔗</span>}
+        {isSharedContact && <span className="badge shared-badge" title="Shared with you">👥</span>}
+      </button>
+    )
+  }
 
   return (
     <div className="contacts-list">
@@ -66,6 +99,13 @@ export default function ContactsList({
       </div>
 
       <div className="list-scroll">
+        {/* Self-contact pinned at top */}
+        {selfEntry && !search.trim() && (
+          <div className="self-section">
+            {renderRow(selfEntry)}
+          </div>
+        )}
+
         {filtered.length === 0 ? (
           <div className="list-empty">
             <p>{search ? 'No contacts match your search.' : 'No contacts yet.'}</p>
@@ -74,35 +114,7 @@ export default function ContactsList({
           grouped.map(([letter, groupEntries]) => (
             <div key={letter} className="alpha-group">
               <div className="alpha-letter">{letter}</div>
-              {groupEntries.map(entry => {
-                const displayName = `${entry.first_name} ${entry.last_name ?? ''}`.trim()
-                const isSharedContact = entry.type === 'contact' && entry.contact?.user_id !== userId
-
-                return (
-                  <button
-                    key={entry.id}
-                    className={`contact-row ${selectedId === entry.id ? 'selected' : ''}`}
-                    onClick={() => onSelectEntry(entry)}
-                  >
-                    {entry.isLinked ? (
-                      <Avatar url={entry.avatar_url} name={displayName} size={36} />
-                    ) : (
-                      <div
-                        className="contact-avatar"
-                        style={{ background: contactAvatarColour({ first_name: entry.first_name, last_name: entry.last_name ?? '' } as any) }}
-                      >
-                        {entry.first_name[0]?.toUpperCase()}{(entry.last_name ?? '')[0]?.toUpperCase()}
-                      </div>
-                    )}
-                    <div className="contact-info">
-                      <span className="contact-name">{displayName}</span>
-                      {entry.email && <span className="contact-sub">{entry.email}</span>}
-                    </div>
-                    {entry.isLinked && <span className="badge linked-badge" title="Linked Life OS user">🔗</span>}
-                    {isSharedContact && <span className="badge shared-badge" title="Shared with you">👥</span>}
-                  </button>
-                )
-              })}
+              {groupEntries.map(entry => renderRow(entry))}
             </div>
           ))
         )}
@@ -121,6 +133,7 @@ export default function ContactsList({
         .search-clear { position: absolute; right: 1.25rem; top: 50%; transform: translateY(-60%); background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 0.75rem; padding: 0.25rem; }
         .list-scroll { flex: 1; overflow-y: auto; padding-bottom: 1rem; }
         .list-empty { padding: 2rem 1rem; text-align: center; font-size: 0.875rem; color: var(--text-muted); font-style: italic; }
+        .self-section { border-bottom: 1px solid var(--border-light); margin-bottom: 0.25rem; padding-bottom: 0.25rem; }
         .alpha-group { margin-bottom: 0.25rem; }
         .alpha-letter { font-size: 0.7rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); padding: 0.5rem 1rem 0.25rem; }
         .contact-row { display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem 0.875rem; border: none; background: none; cursor: pointer; width: 100%; text-align: left; transition: background 0.12s; font-family: var(--font-body); }

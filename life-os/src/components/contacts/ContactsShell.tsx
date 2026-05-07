@@ -18,6 +18,13 @@ export interface NameOverride {
   last_name: string | null
 }
 
+export interface ContactRelationship {
+  id: string
+  contact_a_id: string
+  contact_b_id: string
+  b_role: 'parent' | 'child' | 'sibling' | 'spouse'
+}
+
 export interface ContactEntry {
   type: 'contact' | 'linked'
   contact?: Contact
@@ -30,6 +37,7 @@ export interface ContactEntry {
   avatar_url: string | null
   user_id: string
   isLinked: boolean
+  isSelf: boolean
   linkedUserId?: string
   canSetName: boolean
   originalFirstName: string
@@ -42,6 +50,7 @@ export default function ContactsShell({
   initialContactShares,
   initialLinked,
   initialNameOverrides,
+  initialRelationships,
   userId,
   profile,
 }: {
@@ -49,6 +58,7 @@ export default function ContactsShell({
   initialContactShares: Record<string, ShareRecord[]>
   initialLinked: LinkedContact[]
   initialNameOverrides: NameOverride[]
+  initialRelationships: ContactRelationship[]
   userId: string
   profile: { full_name: string | null; avatar_url: string | null } | null
 }) {
@@ -57,6 +67,7 @@ export default function ContactsShell({
   const [linked, setLinked] = useState<LinkedContact[]>(initialLinked)
   const [contactShares, setContactShares] = useState<Record<string, ShareRecord[]>>(initialContactShares)
   const [nameOverrides, setNameOverrides] = useState<NameOverride[]>(initialNameOverrides)
+  const [relationships, setRelationships] = useState<ContactRelationship[]>(initialRelationships)
   const [selectedEntry, setSelectedEntry] = useState<ContactEntry | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingContact, setEditingContact] = useState<Contact | null>(null)
@@ -70,14 +81,6 @@ export default function ContactsShell({
       .order('last_name', { ascending: true })
     if (data) setContacts(data as Contact[])
   }, [supabase])
-
-  const refreshLinked = useCallback(async () => {
-    const { data } = await (supabase as any)
-      .from('linked_contacts')
-      .select('*, profile:profiles!linked_user_id(id, full_name, email, avatar_url, date_of_birth)')
-      .eq('user_id', userId)
-    if (data) setLinked(data)
-  }, [supabase, userId])
 
   const refreshShares = useCallback(async (contactId: string) => {
     const { data } = await (supabase as any)
@@ -96,6 +99,14 @@ export default function ContactsShell({
     if (data) setNameOverrides(data)
   }, [supabase, userId])
 
+  const refreshRelationships = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('contact_relationships')
+      .select('id, contact_a_id, contact_b_id, b_role')
+      .eq('user_id', userId)
+    if (data) setRelationships(data)
+  }, [supabase, userId])
+
   const allEntries = useMemo((): ContactEntry[] => {
     const entries: ContactEntry[] = []
 
@@ -106,6 +117,7 @@ export default function ContactsShell({
         : null
       const originalFirst = c.first_name
       const originalLast = c.last_name
+      const isSelf = c.is_self && c.user_id === userId
 
       entries.push({
         type: 'contact',
@@ -115,9 +127,10 @@ export default function ContactsShell({
         last_name: override ? override.last_name : originalLast,
         email: c.email,
         date_of_birth: c.date_of_birth,
-        avatar_url: null,
+        avatar_url: isSelf ? (profile?.avatar_url ?? null) : null,
         user_id: c.user_id,
         isLinked: false,
+        isSelf,
         canSetName: isSharedWithMe,
         originalFirstName: originalFirst,
         originalLastName: originalLast,
@@ -143,6 +156,7 @@ export default function ContactsShell({
         avatar_url: l.profile.avatar_url,
         user_id: userId,
         isLinked: true,
+        isSelf: false,
         linkedUserId: l.linked_user_id,
         canSetName: true,
         originalFirstName: first,
@@ -154,7 +168,7 @@ export default function ContactsShell({
     return entries.sort((a, b) =>
       a.first_name.localeCompare(b.first_name) || (a.last_name ?? '').localeCompare(b.last_name ?? '')
     )
-  }, [contacts, linked, userId, nameOverrides])
+  }, [contacts, linked, userId, nameOverrides, profile])
 
   const handleSelectEntry = useCallback((entry: ContactEntry) => {
     setSelectedEntry(entry)
@@ -165,11 +179,6 @@ export default function ContactsShell({
 
   const handleNameOverrideSaved = useCallback(async () => {
     await refreshNameOverrides()
-    // Update selectedEntry with fresh override data
-    setSelectedEntry(prev => {
-      if (!prev) return null
-      return prev // will be updated via allEntries memo on next render
-    })
   }, [refreshNameOverrides])
 
   const handleSaved = useCallback(async (contact?: Contact) => {
@@ -192,9 +201,10 @@ export default function ContactsShell({
           last_name: override ? override.last_name : c.last_name,
           email: c.email,
           date_of_birth: c.date_of_birth,
-          avatar_url: null,
+          avatar_url: c.is_self ? (profile?.avatar_url ?? null) : null,
           user_id: c.user_id,
           isLinked: false,
+          isSelf: c.is_self && c.user_id === userId,
           canSetName: isSharedWithMe,
           originalFirstName: c.first_name,
           originalLastName: c.last_name,
@@ -203,7 +213,7 @@ export default function ContactsShell({
         setSelectedEntry(entry)
       }
     }
-  }, [refreshContacts, supabase, userId, nameOverrides])
+  }, [refreshContacts, supabase, userId, nameOverrides, profile])
 
   const handleDelete = useCallback(async (contactId: string) => {
     await supabase.from('contacts').delete().eq('id', contactId)
@@ -218,7 +228,7 @@ export default function ContactsShell({
     }
   }, [])
 
-  // Keep selectedEntry in sync with allEntries (so name overrides refresh propagates)
+  // Keep selectedEntry in sync with allEntries so overrides + relationship changes propagate
   const syncedSelectedEntry = useMemo(() => {
     if (!selectedEntry) return null
     return allEntries.find(e => e.id === selectedEntry.id) ?? selectedEntry
@@ -246,11 +256,14 @@ export default function ContactsShell({
             entry={syncedSelectedEntry}
             userId={userId}
             shares={syncedSelectedEntry.type === 'contact' ? (contactShares[syncedSelectedEntry.id] ?? []) : []}
+            allEntries={allEntries}
+            relationships={relationships}
             onSharesChanged={() => syncedSelectedEntry.type === 'contact' && refreshShares(syncedSelectedEntry.id)}
             onEdit={() => handleEdit(syncedSelectedEntry)}
             onDelete={() => syncedSelectedEntry.contact && handleDelete(syncedSelectedEntry.contact.id)}
             onClose={() => setSelectedEntry(null)}
             onNameOverrideSaved={handleNameOverrideSaved}
+            onRelationshipChanged={refreshRelationships}
           />
         ) : (
           <div className="contacts-empty-state">

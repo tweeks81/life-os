@@ -7,18 +7,46 @@ export default async function ContactsPage() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) redirect('/auth')
 
+  // Fetch profile first — needed for self-contact creation
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('full_name, avatar_url')
+    .eq('id', user.id)
+    .single()
+
+  // Ensure a self-contact row exists for this user
+  const { data: existingSelf } = await supabase
+    .from('contacts')
+    .select('id')
+    .eq('user_id', user.id)
+    .eq('is_self', true)
+    .maybeSingle()
+
+  if (!existingSelf) {
+    const nameParts = (profile?.full_name ?? '').trim().split(' ')
+    const firstName = nameParts[0] || 'Me'
+    const lastName = nameParts.slice(1).join(' ') || null
+    await supabase.from('contacts').insert({
+      user_id: user.id,
+      first_name: firstName,
+      last_name: lastName,
+      email: user.email ?? null,
+      is_self: true,
+    })
+  }
+
   const [
     { data: contacts },
-    { data: profile },
     { data: shareRows },
     { data: linkedRaw },
     { data: nameOverrides },
+    { data: relationships },
   ] = await Promise.all([
     supabase.from('contacts').select('*').order('first_name').order('last_name'),
-    supabase.from('profiles').select('full_name, avatar_url').eq('id', user.id).single(),
     (supabase as any).from('contact_shares').select('id, contact_id, shared_with_email, created_at').eq('owner_id', user.id),
     (supabase as any).from('linked_contacts').select('id, user_id, linked_user_id, created_at').eq('user_id', user.id),
     (supabase as any).from('contact_name_overrides').select('id, contact_id, linked_user_id, first_name, last_name').eq('user_id', user.id),
+    (supabase as any).from('contact_relationships').select('id, contact_a_id, contact_b_id, b_role').eq('user_id', user.id),
   ])
 
   // Fetch profiles for linked users separately
@@ -48,6 +76,7 @@ export default async function ContactsPage() {
       initialContactShares={contactShares}
       initialLinked={linked ?? []}
       initialNameOverrides={nameOverrides ?? []}
+      initialRelationships={relationships ?? []}
       userId={user.id}
       profile={profile}
     />
