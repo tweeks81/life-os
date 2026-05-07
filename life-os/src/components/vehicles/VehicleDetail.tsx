@@ -41,6 +41,7 @@ export default function VehicleDetail({
 }) {
   const supabase = createClient()
   const isOwner = vehicle.user_id === userId
+  const sold = vehicle.sold_date != null
   const [tab, setTab] = useState<Tab>('info')
   const [linkedPeople, setLinkedPeople] = useState<Record<string, string>>({}) // id -> name
   const [mots, setMots] = useState<VehicleMot[]>([])
@@ -138,6 +139,7 @@ export default function VehicleDetail({
             <h2 className="detail-title">{vehicle.name}</h2>
             <div className="detail-meta">
               {vehicle.reg_number && <span className="reg-plate">{vehicle.reg_number.toUpperCase()}</span>}
+              {sold && <span className="sold-status-badge">Sold</span>}
               {vehicle.user_id !== userId && <span className="shared-badge">👥 Shared</span>}
             </div>
           </div>
@@ -175,38 +177,42 @@ export default function VehicleDetail({
               {vehicle.year && <InfoField label="Year" value={vehicle.year.toString()} />}
               {vehicle.colour && <InfoField label="Colour" value={vehicle.colour} />}
               {vehicle.reg_number && <InfoField label="Registration" value={vehicle.reg_number.toUpperCase()} mono />}
+              {vehicle.purchased_date && <InfoField label="Purchased" value={fmt(vehicle.purchased_date)} />}
+              {vehicle.sold_date && <InfoField label="Sold" value={fmt(vehicle.sold_date)} />}
             </div>
 
-            {/* Quick snapshot */}
-            <div className="snapshot-section">
-              <div className="snapshot-heading">Status snapshot</div>
-              <div className="snapshot-rows">
-                <SnapshotRow
-                  icon="🛡"
-                  label="Insurance"
-                  value={insuranceExpired ? 'No valid insurance' : currentInsurance ? `${currentInsurance.insurer ?? 'Insured'} — expires ${fmt(currentInsurance.end_date)}` : 'Not recorded'}
-                  status={insuranceExpired ? 'expired' : currentInsurance ? (isExpiringSoon(currentInsurance.end_date, 30) ? 'warning' : 'ok') : 'none'}
-                />
-                <SnapshotRow
-                  icon="📋"
-                  label="Tax"
-                  value={taxExpired ? 'No valid tax' : currentTax ? `Expires ${fmt(currentTax.expiry_date)}` : 'Not recorded'}
-                  status={taxExpired ? 'expired' : currentTax ? (isExpiringSoon(currentTax.expiry_date, 30) ? 'warning' : 'ok') : 'none'}
-                />
-                <SnapshotRow
-                  icon="✅"
-                  label="MOT"
-                  value={nextMot ? (isExpired(nextMot.expiry_date) ? 'Expired' : `Expires ${fmt(nextMot.expiry_date)}`) : 'Not recorded'}
-                  status={nextMot ? (isExpired(nextMot.expiry_date) ? 'expired' : isExpiringSoon(nextMot.expiry_date) ? 'warning' : 'ok') : 'none'}
-                />
-                <SnapshotRow
-                  icon="🔧"
-                  label="Last service"
-                  value={services.length > 0 ? fmt(services[0].service_date) : 'Not recorded'}
-                  status={services.length > 0 ? 'ok' : 'none'}
-                />
+            {/* Quick snapshot — hidden for sold vehicles */}
+            {!sold && (
+              <div className="snapshot-section">
+                <div className="snapshot-heading">Status snapshot</div>
+                <div className="snapshot-rows">
+                  <SnapshotRow
+                    icon="🛡"
+                    label="Insurance"
+                    value={insuranceExpired ? 'No valid insurance' : currentInsurance ? `${currentInsurance.insurer ?? 'Insured'} — expires ${fmt(currentInsurance.end_date)}` : 'Not recorded'}
+                    status={insuranceExpired ? 'expired' : currentInsurance ? (isExpiringSoon(currentInsurance.end_date, 30) ? 'warning' : 'ok') : 'none'}
+                  />
+                  <SnapshotRow
+                    icon="📋"
+                    label="Tax"
+                    value={taxExpired ? 'No valid tax' : currentTax ? `Expires ${fmt(currentTax.expiry_date)}` : 'Not recorded'}
+                    status={taxExpired ? 'expired' : currentTax ? (isExpiringSoon(currentTax.expiry_date, 30) ? 'warning' : 'ok') : 'none'}
+                  />
+                  <SnapshotRow
+                    icon="✅"
+                    label="MOT"
+                    value={nextMot ? (isExpired(nextMot.expiry_date) ? 'Expired' : `Expires ${fmt(nextMot.expiry_date)}`) : 'Not recorded'}
+                    status={nextMot ? (isExpired(nextMot.expiry_date) ? 'expired' : isExpiringSoon(nextMot.expiry_date) ? 'warning' : 'ok') : 'none'}
+                  />
+                  <SnapshotRow
+                    icon="🔧"
+                    label="Last service"
+                    value={services.length > 0 ? fmt(services[0].service_date) : 'Not recorded'}
+                    status={services.length > 0 ? 'ok' : 'none'}
+                  />
+                </div>
               </div>
-            </div>
+            )}
 
             {vehicle.notes && (
               <div className="notes-block">
@@ -468,6 +474,7 @@ export default function VehicleDetail({
         .detail-meta { display: flex; align-items: center; gap: 0.5rem; }
         .reg-plate { font-size: 0.8rem; font-weight: 700; letter-spacing: 0.05em; background: #1a1a2e; color: #f5c518; padding: 0.15rem 0.6rem; border-radius: 4px; font-family: monospace; }
         .shared-badge { font-size: 0.72rem; font-weight: 600; background: #eff6ff; color: #2563eb; padding: 0.15rem 0.4rem; border-radius: 4px; }
+        .sold-status-badge { font-size: 0.72rem; font-weight: 700; background: #f3f4f6; color: #6b7280; padding: 0.15rem 0.5rem; border-radius: 4px; border: 1px solid #d1d5db; text-transform: uppercase; letter-spacing: 0.04em; }
         .detail-header-right { display: flex; align-items: center; gap: 0.4rem; flex-shrink: 0; }
         .detail-btn { font-size: 0.8125rem; padding: 0.375rem 0.875rem; }
         .detail-delete-btn { width: 32px; height: 32px; border-radius: 8px; border: 1px solid var(--border); background: none; cursor: pointer; font-size: 0.875rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
