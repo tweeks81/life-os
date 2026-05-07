@@ -27,7 +27,7 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 ]
 
 export default function VehicleDetail({
-  vehicle, userId, shares, onSharesChanged, onEdit, onDelete, onClose,
+  vehicle, userId, shares, onSharesChanged, onEdit, onDelete, onClose, onTaxChanged,
 }: {
   vehicle: Vehicle
   userId: string
@@ -36,6 +36,7 @@ export default function VehicleDetail({
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
+  onTaxChanged: () => void
 }) {
   const supabase = createClient()
   const isOwner = vehicle.user_id === userId
@@ -325,7 +326,7 @@ export default function VehicleDetail({
                     {isOwner && (
                       <div className="record-actions">
                         <button className="record-edit-btn" onClick={() => { setEditingTax(t); setShowTaxForm(true) }}>Edit</button>
-                        <button className="record-delete-btn" onClick={async () => { if (confirm('Delete this tax record?')) { await (supabase as any).from('vehicle_tax').delete().eq('id', t.id); loadTab('tax') } }}>🗑</button>
+                        <button className="record-delete-btn" onClick={async () => { if (confirm('Delete this tax record?')) { await (supabase as any).from('vehicle_tax').delete().eq('id', t.id); loadTab('tax'); onTaxChanged() } }}>🗑</button>
                       </div>
                     )}
                   </div>
@@ -386,7 +387,7 @@ export default function VehicleDetail({
       {showServiceForm && <ServiceForm vehicleId={vehicle.id} userId={userId} service={editingService} onSaved={() => { loadTab('service'); setShowServiceForm(false); setEditingService(null) }} onClose={() => { setShowServiceForm(false); setEditingService(null) }} />}
       {showMaintenanceForm && <MaintenanceForm vehicleId={vehicle.id} userId={userId} maintenance={editingMaintenance} onSaved={() => { loadTab('maintenance'); setShowMaintenanceForm(false); setEditingMaintenance(null) }} onClose={() => { setShowMaintenanceForm(false); setEditingMaintenance(null) }} />}
       {showPolicyForm && <PolicyForm vehicleId={vehicle.id} userId={userId} policy={editingPolicy} onSaved={() => { loadTab('policies'); setShowPolicyForm(false); setEditingPolicy(null) }} onClose={() => { setShowPolicyForm(false); setEditingPolicy(null) }} />}
-      {showTaxForm && <TaxForm vehicleId={vehicle.id} userId={userId} tax={editingTax} onSaved={() => { loadTab('tax'); setShowTaxForm(false); setEditingTax(null) }} onClose={() => { setShowTaxForm(false); setEditingTax(null) }} />}
+      {showTaxForm && <TaxForm vehicleId={vehicle.id} userId={userId} tax={editingTax} onSaved={() => { loadTab('tax'); setShowTaxForm(false); setEditingTax(null); onTaxChanged() }} onClose={() => { setShowTaxForm(false); setEditingTax(null) }} />}
 
       <style>{`
         .veh-detail { flex: 1; background: white; border-left: 1px solid var(--border-light); box-shadow: -4px 0 24px var(--shadow-warm-md); display: flex; flex-direction: column; overflow: hidden; animation: slideIn 0.22s ease; max-width: 560px; }

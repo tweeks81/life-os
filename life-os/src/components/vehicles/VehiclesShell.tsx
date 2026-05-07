@@ -39,6 +39,12 @@ export default function VehiclesShell({
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
+  const refreshTaxStatus = useCallback(async () => {
+    const today = new Date().toISOString().split('T')[0]
+    const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
+    setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
+  }, [supabase])
+
   const refreshShares = useCallback(async (vehicleId: string) => {
     const { data } = await (supabase as any)
       .from('vehicle_shares')
