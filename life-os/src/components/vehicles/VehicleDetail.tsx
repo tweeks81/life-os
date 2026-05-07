@@ -12,7 +12,7 @@ import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
 import MotForm from './MotForm'
 import ServiceForm from './ServiceForm'
 import MaintenanceForm from './MaintenanceForm'
-import PolicyForm from './PolicyForm'
+import InsuranceForm from './InsuranceForm'
 import TaxForm from './TaxForm'
 
 type Tab = 'info' | 'mot' | 'service' | 'maintenance' | 'policies' | 'tax'
@@ -22,12 +22,12 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'mot', label: 'MOT', icon: '✅' },
   { id: 'service', label: 'Service', icon: '🔧' },
   { id: 'maintenance', label: 'Maintenance', icon: '🛠' },
-  { id: 'policies', label: 'Policies', icon: '🛡' },
+  { id: 'policies', label: 'Insurance', icon: '🛡' },
   { id: 'tax', label: 'Tax', icon: '📋' },
 ]
 
 export default function VehicleDetail({
-  vehicle, userId, shares, onSharesChanged, onEdit, onDelete, onClose, onTaxChanged,
+  vehicle, userId, shares, onSharesChanged, onEdit, onDelete, onClose, onTaxChanged, onInsuranceChanged,
 }: {
   vehicle: Vehicle
   userId: string
@@ -37,6 +37,7 @@ export default function VehicleDetail({
   onDelete: () => void
   onClose: () => void
   onTaxChanged: () => void
+  onInsuranceChanged: () => void
 }) {
   const supabase = createClient()
   const isOwner = vehicle.user_id === userId
@@ -50,11 +51,13 @@ export default function VehicleDetail({
   const [showServiceForm, setShowServiceForm] = useState(false)
   const [showMaintenanceForm, setShowMaintenanceForm] = useState(false)
   const [showPolicyForm, setShowPolicyForm] = useState(false)
+  const [showInsuranceForm, setShowInsuranceForm] = useState(false)
   const [showTaxForm, setShowTaxForm] = useState(false)
   const [editingMot, setEditingMot] = useState<VehicleMot | null>(null)
   const [editingService, setEditingService] = useState<VehicleService | null>(null)
   const [editingMaintenance, setEditingMaintenance] = useState<VehicleMaintenance | null>(null)
   const [editingPolicy, setEditingPolicy] = useState<VehiclePolicy | null>(null)
+  const [editingInsurance, setEditingInsurance] = useState<VehiclePolicy | null>(null)
   const [editingTax, setEditingTax] = useState<VehicleTax | null>(null)
 
   const loadTab = useCallback(async (t: Tab) => {
@@ -92,6 +95,8 @@ export default function VehicleDetail({
   const nextPolicy = policies.find(p => p.policy_type === 'insurance' && !isExpired(p.end_date))
   const currentTax = taxRecords.find(t => !isExpired(t.expiry_date))
   const taxExpired = taxRecords.length > 0 && !currentTax
+  const currentInsurance = policies.find(p => p.policy_type === 'insurance' && !isExpired(p.end_date))
+  const insuranceExpired = policies.filter(p => p.policy_type === 'insurance').length > 0 && !currentInsurance
 
   return (
     <div className="veh-detail">
@@ -166,12 +171,14 @@ export default function VehicleDetail({
                   </div>
                 </div>
               )}
-              {nextPolicy && (
-                <div className={`status-card ${isExpiringSoon(nextPolicy.end_date, 30) ? 'warning' : 'ok'}`}>
+              {(currentInsurance || insuranceExpired) && (
+                <div className={`status-card ${insuranceExpired ? 'expired' : isExpiringSoon(currentInsurance!.end_date, 30) ? 'warning' : 'ok'}`}>
                   <span className="status-card-icon">🛡</span>
                   <div>
                     <div className="status-card-label">Insurance</div>
-                    <div className="status-card-value">Expires {fmt(nextPolicy.end_date)}</div>
+                    <div className="status-card-value">
+                      {insuranceExpired ? 'NO VALID INSURANCE' : `Expires ${fmt(currentInsurance!.end_date)}`}
+                    </div>
                   </div>
                 </div>
               )}
@@ -345,12 +352,17 @@ export default function VehicleDetail({
         {tab === 'policies' && (
           <div className="tab-content">
             {isOwner && (
-              <button className="add-record-btn" onClick={() => { setEditingPolicy(null); setShowPolicyForm(true) }}>
-                + Add policy
+              <button className="add-record-btn" onClick={() => { setEditingInsurance(null); setShowInsuranceForm(true) }}>
+                + Add insurance
               </button>
             )}
+            {insuranceExpired && (
+              <div className="tax-warning">
+                ⚠ No valid insurance found for this vehicle. Please add a current insurance record.
+              </div>
+            )}
             {policies.length === 0 ? (
-              <EmptyTab label="No policies yet." />
+              <EmptyTab label="No insurance records yet." />
             ) : (
               policies.map(pol => (
                 <div key={pol.id} className={`record-card ${isExpired(pol.end_date) ? 'record-expired' : isExpiringSoon(pol.end_date) ? 'record-warning' : ''}`}>
@@ -361,8 +373,8 @@ export default function VehicleDetail({
                     </div>
                     {isOwner && (
                       <div className="record-actions">
-                        <button className="record-edit-btn" onClick={() => { setEditingPolicy(pol); setShowPolicyForm(true) }}>Edit</button>
-                        <button className="record-delete-btn" onClick={async () => { if (confirm('Delete this policy?')) { await (supabase as any).from('vehicle_policies').delete().eq('id', pol.id); loadTab('policies') } }}>🗑</button>
+                        <button className="record-edit-btn" onClick={() => { setEditingInsurance(pol); setShowInsuranceForm(true) }}>Edit</button>
+                        <button className="record-delete-btn" onClick={async () => { if (confirm('Delete this insurance record?')) { await (supabase as any).from('vehicle_policies').delete().eq('id', pol.id); loadTab('policies'); onInsuranceChanged() } }}>🗑</button>
                       </div>
                     )}
                   </div>
@@ -371,9 +383,32 @@ export default function VehicleDetail({
                     {pol.policy_number && <RecordField label="Policy no." value={pol.policy_number} />}
                     <RecordField label="Start" value={fmt(pol.start_date)} />
                     <RecordField label="End" value={fmt(pol.end_date)} highlight={isExpired(pol.end_date) ? 'expired' : isExpiringSoon(pol.end_date) ? 'warning' : undefined} />
-                    {pol.cost != null && <RecordField label="Cost" value={fmtCost(pol.cost)!} />}
+                    {pol.cost != null && <RecordField label="Premium" value={fmtCost(pol.cost)!} />}
+                    {pol.excess != null && <RecordField label="Excess" value={fmtCost(pol.excess)!} />}
+                    {pol.policy_holder && pol.policy_holder !== 'me' && <RecordField label="Holder" value={pol.policy_holder} />}
                     {pol.auto_renews && <RecordField label="Auto-renews" value="Yes" />}
                   </div>
+                  {pol.named_drivers && pol.named_drivers.length > 0 && (
+                    <div className="record-fields">
+                      <RecordField label="Named drivers" value={pol.named_drivers.length.toString()} />
+                    </div>
+                  )}
+                  {(() => {
+                    const included = [
+                      pol.includes_courtesy_car && 'Courtesy car',
+                      pol.includes_breakdown && 'Breakdown',
+                      pol.includes_legal_cover && 'Legal',
+                      pol.includes_personal_accident && 'Personal accident',
+                      pol.includes_windscreen && 'Windscreen',
+                      pol.includes_european_cover && 'European',
+                      pol.includes_no_claims_protection && 'No claims protection',
+                    ].filter(Boolean) as string[]
+                    return included.length > 0 ? (
+                      <div className="inclusion-tags">
+                        {included.map(tag => <span key={tag} className="inclusion-tag">✓ {tag}</span>)}
+                      </div>
+                    ) : null
+                  })()}
                   {pol.notes && <p className="record-notes">{pol.notes}</p>}
                 </div>
               ))
@@ -386,7 +421,7 @@ export default function VehicleDetail({
       {showMotForm && <MotForm vehicleId={vehicle.id} userId={userId} mot={editingMot} onSaved={() => { loadTab('mot'); setShowMotForm(false); setEditingMot(null) }} onClose={() => { setShowMotForm(false); setEditingMot(null) }} />}
       {showServiceForm && <ServiceForm vehicleId={vehicle.id} userId={userId} service={editingService} onSaved={() => { loadTab('service'); setShowServiceForm(false); setEditingService(null) }} onClose={() => { setShowServiceForm(false); setEditingService(null) }} />}
       {showMaintenanceForm && <MaintenanceForm vehicleId={vehicle.id} userId={userId} maintenance={editingMaintenance} onSaved={() => { loadTab('maintenance'); setShowMaintenanceForm(false); setEditingMaintenance(null) }} onClose={() => { setShowMaintenanceForm(false); setEditingMaintenance(null) }} />}
-      {showPolicyForm && <PolicyForm vehicleId={vehicle.id} userId={userId} policy={editingPolicy} onSaved={() => { loadTab('policies'); setShowPolicyForm(false); setEditingPolicy(null) }} onClose={() => { setShowPolicyForm(false); setEditingPolicy(null) }} />}
+      {showInsuranceForm && <InsuranceForm vehicleId={vehicle.id} userId={userId} policy={editingInsurance} onSaved={() => { loadTab('policies'); setShowInsuranceForm(false); setEditingInsurance(null); onInsuranceChanged() }} onClose={() => { setShowInsuranceForm(false); setEditingInsurance(null) }} />}
       {showTaxForm && <TaxForm vehicleId={vehicle.id} userId={userId} tax={editingTax} onSaved={() => { loadTab('tax'); setShowTaxForm(false); setEditingTax(null); onTaxChanged() }} onClose={() => { setShowTaxForm(false); setEditingTax(null) }} />}
 
       <style>{`
@@ -458,6 +493,8 @@ export default function VehicleDetail({
         .record-field-value.warning { color: #b45309; font-weight: 700; }
         .record-notes { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; font-style: italic; border-top: 1px solid var(--border-light); padding-top: 0.375rem; }
         .empty-tab { text-align: center; padding: 2.5rem 1rem; font-size: 0.875rem; color: var(--text-muted); font-style: italic; }
+        .inclusion-tags { display: flex; flex-wrap: wrap; gap: 0.3rem; padding-top: 0.25rem; }
+        .inclusion-tag { font-size: 0.7rem; background: #f0fdf4; color: #166534; padding: 0.15rem 0.4rem; border-radius: 4px; font-weight: 500; border: 1px solid #bbf7d0; }
         .tax-warning { background: #fef2f2; border: 1px solid #fecaca; border-radius: 10px; padding: 0.875rem 1rem; font-size: 0.875rem; font-weight: 600; color: #dc2626; line-height: 1.5; }
       `}</style>
     </div>

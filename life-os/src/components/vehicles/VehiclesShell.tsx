@@ -13,18 +13,21 @@ export default function VehiclesShell({
   initialVehicles,
   initialShares,
   taxedVehicleIds,
+  insuredVehicleIds,
   userId,
   profile,
 }: {
   initialVehicles: Vehicle[]
   initialShares: Record<string, ShareRecord[]>
   taxedVehicleIds: string[]
+  insuredVehicleIds: string[]
   userId: string
   profile: { full_name: string | null; avatar_url: string | null } | null
 }) {
   const supabase = createClient()
   const [vehicles, setVehicles] = useState<Vehicle[]>(initialVehicles)
   const [taxedIds, setTaxedIds] = useState<Set<string>>(new Set(taxedVehicleIds))
+  const [insuredIds, setInsuredIds] = useState<Set<string>>(new Set(insuredVehicleIds))
   const [shares, setShares] = useState<Record<string, ShareRecord[]>>(initialShares)
   const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null)
   const [showForm, setShowForm] = useState(false)
@@ -37,12 +40,16 @@ export default function VehiclesShell({
     const today = new Date().toISOString().split('T')[0]
     const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
+    const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
+    setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
   const refreshTaxStatus = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0]
     const { data: taxData } = await (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today)
     setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
+    const { data: insData } = await (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today)
+    setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
   }, [supabase])
 
   const refreshShares = useCallback(async (vehicleId: string) => {
@@ -84,6 +91,7 @@ export default function VehiclesShell({
           userId={userId}
           selectedId={selectedVehicle?.id ?? null}
           taxedIds={taxedIds}
+          insuredIds={insuredIds}
           onSelect={handleSelect}
           onNew={() => { setEditingVehicle(null); setShowForm(true) }}
         />
@@ -97,7 +105,6 @@ export default function VehiclesShell({
             onEdit={() => { setEditingVehicle(selectedVehicle); setShowForm(true) }}
             onDelete={() => handleDelete(selectedVehicle.id)}
             onClose={() => setSelectedVehicle(null)}
-onTaxChanged={refreshTaxStatus}
           />
         ) : (
           <div className="vehicles-empty">

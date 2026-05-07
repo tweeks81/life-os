@@ -7,6 +7,7 @@ export default function VehiclesList({
   userId,
   selectedId,
   taxedIds,
+  insuredIds,
   onSelect,
   onNew,
 }: {
@@ -14,6 +15,7 @@ export default function VehiclesList({
   userId: string
   selectedId: string | null
   taxedIds: Set<string>
+  insuredIds: Set<string>
   onSelect: (v: Vehicle) => void
   onNew: () => void
 }) {
@@ -35,10 +37,12 @@ export default function VehiclesList({
         ) : (
           vehicles.map(v => {
             const isTaxed = taxedIds.has(v.id)
+            const isInsured = insuredIds.has(v.id)
+            const hasWarning = !isTaxed || !isInsured
             return (
               <button
                 key={v.id}
-                className={`veh-row ${selectedId === v.id ? 'selected' : ''} ${!isTaxed ? 'untaxed' : ''}`}
+                className={`veh-row ${selectedId === v.id ? 'selected' : ''} ${hasWarning ? 'untaxed' : ''}`}
                 onClick={() => onSelect(v)}
               >
                 <div className="veh-icon">{VEHICLE_TYPE_ICONS[v.vehicle_type]}</div>
@@ -51,9 +55,8 @@ export default function VehiclesList({
                     {[v.make, v.model].filter(Boolean).join(' ') || VEHICLE_TYPE_LABELS[v.vehicle_type]}
                   </span>
                   {v.reg_number && <span className="veh-reg">{v.reg_number.toUpperCase()}</span>}
-                  {!isTaxed && (
-                    <span className="untaxed-badge">⚠ No valid tax</span>
-                  )}
+                  {!isTaxed && <span className="untaxed-badge">⚠ No valid tax</span>}
+                  {!isInsured && <span className="untaxed-badge">⚠ No valid insurance</span>}
                 </div>
               </button>
             )

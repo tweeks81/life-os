@@ -75,6 +75,7 @@ export default function DashboardClient({
   totalActiveTasks,
   totalProjects,
   untaxedVehicles,
+  uninsuredVehicles,
 }: {
   profile: any
   firstName: string
@@ -84,6 +85,7 @@ export default function DashboardClient({
   totalActiveTasks: number
   totalProjects: number
   untaxedVehicles: { id: string; name: string; reg_number: string | null }[]
+  uninsuredVehicles: { id: string; name: string; reg_number: string | null }[]
 }) {
   const now = new Date()
   const hour = now.getHours()
@@ -142,6 +144,25 @@ export default function DashboardClient({
             </Link>
           </div>
         </div>
+
+        {uninsuredVehicles.length > 0 && (
+          <div className="untaxed-warning">
+            <span className="untaxed-warning-icon">🛡</span>
+            <div className="untaxed-warning-content">
+              <strong>Vehicle insurance required</strong>
+              <span>
+                {uninsuredVehicles.map((v, i) => (
+                  <span key={v.id}>
+                    {v.name}{v.reg_number ? ` (${v.reg_number.toUpperCase()})` : ''}
+                    {i < uninsuredVehicles.length - 1 ? ', ' : ''}
+                  </span>
+                ))}
+                {uninsuredVehicles.length === 1 ? ' has no valid insurance.' : ' have no valid insurance.'}
+              </span>
+            </div>
+            <a href="/vehicles" className="untaxed-warning-link">View →</a>
+          </div>
+        )}
 
         {untaxedVehicles.length > 0 && (
           <div className="untaxed-warning">

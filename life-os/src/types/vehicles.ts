@@ -72,7 +72,17 @@ export interface VehiclePolicy {
   start_date: string
   end_date: string
   cost: number | null
+  excess: number | null
   auto_renews: boolean
+  policy_holder: string | null
+  named_drivers: string[] | null
+  includes_courtesy_car: boolean
+  includes_breakdown: boolean
+  includes_legal_cover: boolean
+  includes_personal_accident: boolean
+  includes_windscreen: boolean
+  includes_european_cover: boolean
+  includes_no_claims_protection: boolean
   notes: string | null
   created_at: string
   updated_at: string
