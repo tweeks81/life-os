@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Trip, TripFlight, TripParking, TripTaxi, TripAccommodation, TripShare, LinkedContactForSharing,
   ACCOMMODATION_ICONS, ACCOMMODATION_TYPES,
@@ -18,6 +18,36 @@ type ItineraryItem =
   | { kind: 'taxi'; sortDt: string; data: TripTaxi }
   | { kind: 'accommodation'; sortDt: string; data: TripAccommodation }
 
+function itemTable(item: ItineraryItem): string {
+  const map = { flight: 'trip_flights', parking: 'trip_parking', taxi: 'trip_taxis', accommodation: 'trip_accommodations' } as const
+  return map[item.kind]
+}
+
+function buildItinerary(
+  flights: TripFlight[], parking: TripParking[],
+  taxis: TripTaxi[], accommodations: TripAccommodation[]
+): ItineraryItem[] {
+  const items: ItineraryItem[] = [
+    ...flights.map(f => ({ kind: 'flight' as const, sortDt: f.depart_datetime, data: f })),
+    ...parking.map(p => ({ kind: 'parking' as const, sortDt: p.start_datetime, data: p })),
+    ...taxis.map(t => ({ kind: 'taxi' as const, sortDt: t.collection_datetime, data: t })),
+    ...accommodations.map(a => ({
+      kind: 'accommodation' as const,
+      sortDt: a.check_in_date ? a.check_in_date + 'T00:00:00Z' : '9999',
+      data: a,
+    })),
+  ]
+  const hasSortOrder = items.some(i => i.data.sort_order != null)
+  return items.sort((a, b) => {
+    if (hasSortOrder) {
+      const oa = a.data.sort_order ?? 99999
+      const ob = b.data.sort_order ?? 99999
+      if (oa !== ob) return oa - ob
+    }
+    return a.sortDt.localeCompare(b.sortDt)
+  })
+}
+
 export default function TripDetail({
   trip,
   flights,
@@ -33,6 +63,7 @@ export default function TripDetail({
   onDeleteTrip,
   onItemAdded,
   onDeleteItem,
+  onReorderItems,
   onAddShare,
   onRemoveShare,
 }: {
@@ -50,9 +81,13 @@ export default function TripDetail({
   onDeleteTrip: () => void
   onItemAdded: () => void
   onDeleteItem: (table: string, id: string) => void
+  onReorderItems: (updates: { table: string; id: string; sortOrder: number }[]) => void
   onAddShare: (sharedWithUserId: string) => void
   onRemoveShare: (shareId: string) => void
 }) {
+  const [itinerary, setItinerary] = useState<ItineraryItem[]>(() =>
+    buildItinerary(flights, parking, taxis, accommodations)
+  )
   const [addFlight, setAddFlight] = useState(false)
   const [addParking, setAddParking] = useState(false)
   const [addTaxi, setAddTaxi] = useState(false)
@@ -65,23 +100,21 @@ export default function TripDetail({
   const [confirmDeleteTrip, setConfirmDeleteTrip] = useState(false)
   const [confirmDeleteItem, setConfirmDeleteItem] = useState<{ kind: string; id: string } | null>(null)
 
-  const itinerary: ItineraryItem[] = useMemo(() => {
-    const items: ItineraryItem[] = [
-      ...flights.map(f => ({ kind: 'flight' as const, sortDt: f.depart_datetime, data: f })),
-      ...parking.map(p => ({ kind: 'parking' as const, sortDt: p.start_datetime, data: p })),
-      ...taxis.map(t => ({ kind: 'taxi' as const, sortDt: t.collection_datetime, data: t })),
-      ...accommodations.map(a => ({
-        kind: 'accommodation' as const,
-        sortDt: a.check_in_date ? a.check_in_date + 'T00:00:00Z' : '9999',
-        data: a,
-      })),
-    ]
-    return items.sort((a, b) => a.sortDt.localeCompare(b.sortDt))
+  useEffect(() => {
+    setItinerary(buildItinerary(flights, parking, taxis, accommodations))
   }, [flights, parking, taxis, accommodations])
+
+  const moveItem = (index: number, direction: 'up' | 'down') => {
+    const targetIndex = direction === 'up' ? index - 1 : index + 1
+    if (targetIndex < 0 || targetIndex >= itinerary.length) return
+    const next = [...itinerary]
+    ;[next[index], next[targetIndex]] = [next[targetIndex], next[index]]
+    setItinerary(next)
+    onReorderItems(next.map((item, i) => ({ table: itemTable(item), id: item.data.id, sortOrder: i + 1 })))
+  }
 
   return (
     <div className="trip-detail">
-      {/* Header */}
       <div className="td-header">
         <div className="td-header-left">
           <span className="td-icon">✈</span>
@@ -109,7 +142,6 @@ export default function TripDetail({
         </div>
       </div>
 
-      {/* Add buttons — owners only */}
       {isOwner && (
         <div className="td-add-bar">
           <span className="td-add-label">Add:</span>
@@ -120,7 +152,6 @@ export default function TripDetail({
         </div>
       )}
 
-      {/* Itinerary */}
       <div className="td-body">
         {itinerary.length === 0 && (
           <div className="td-empty">
@@ -129,15 +160,44 @@ export default function TripDetail({
           </div>
         )}
 
-        {itinerary.map(item => {
+        {itinerary.map((item, index) => {
           const id = item.data.id
           const isDeleting = confirmDeleteItem?.id === id
+          const canMoveUp = index > 0
+          const canMoveDown = index < itinerary.length - 1
+
+          const reorderBtns = isOwner && (
+            <div className="td-reorder-btns">
+              <button className="td-reorder-btn" onClick={() => moveItem(index, 'up')} disabled={!canMoveUp} title="Move up">↑</button>
+              <button className="td-reorder-btn" onClick={() => moveItem(index, 'down')} disabled={!canMoveDown} title="Move down">↓</button>
+            </div>
+          )
+
+          const actionBtns = isOwner && (
+            <div className="td-card-actions">
+              {isDeleting ? (
+                <>
+                  <button className="td-del-confirm" onClick={() => { onDeleteItem(itemTable(item), id); setConfirmDeleteItem(null) }}>Delete</button>
+                  <button className="td-del-cancel" onClick={() => setConfirmDeleteItem(null)}>Cancel</button>
+                </>
+              ) : (
+                <>
+                  {item.kind === 'flight' && <button className="td-edit-btn" onClick={() => setEditFlight(item.data as TripFlight)}>Edit</button>}
+                  {item.kind === 'parking' && <button className="td-edit-btn" onClick={() => setEditParking(item.data as TripParking)}>Edit</button>}
+                  {item.kind === 'taxi' && <button className="td-edit-btn" onClick={() => setEditTaxi(item.data as TripTaxi)}>Edit</button>}
+                  {item.kind === 'accommodation' && <button className="td-edit-btn" onClick={() => setEditAccommodation(item.data as TripAccommodation)}>Edit</button>}
+                  <button className="td-del-btn" onClick={() => setConfirmDeleteItem({ kind: item.kind, id })}>✕</button>
+                </>
+              )}
+            </div>
+          )
 
           if (item.kind === 'flight') {
-            const f = item.data
+            const f = item.data as TripFlight
             const dur = flightDuration(f.depart_datetime, f.arrive_datetime)
             return (
               <div key={id} className="td-card">
+                {reorderBtns}
                 <div className="td-card-icon">✈️</div>
                 <div className="td-card-body">
                   <div className="td-card-title">
@@ -162,29 +222,16 @@ export default function TripDetail({
                   {f.booking_reference && <div className="td-card-sub">Ref: {f.booking_reference}{f.booked_via ? ` · via ${f.booked_via}` : ''}</div>}
                   {f.notes && <div className="td-notes">{f.notes}</div>}
                 </div>
-                {isOwner && (
-                  <div className="td-card-actions">
-                    {isDeleting ? (
-                      <>
-                        <button className="td-del-confirm" onClick={() => { onDeleteItem('trip_flights', id); setConfirmDeleteItem(null) }}>Delete</button>
-                        <button className="td-del-cancel" onClick={() => setConfirmDeleteItem(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="td-edit-btn" onClick={() => setEditFlight(f)}>Edit</button>
-                        <button className="td-del-btn" onClick={() => setConfirmDeleteItem({ kind: 'flight', id })}>✕</button>
-                      </>
-                    )}
-                  </div>
-                )}
+                {actionBtns}
               </div>
             )
           }
 
           if (item.kind === 'parking') {
-            const p = item.data
+            const p = item.data as TripParking
             return (
               <div key={id} className="td-card">
+                {reorderBtns}
                 <div className="td-card-icon">🅿️</div>
                 <div className="td-card-body">
                   <div className="td-card-title">{p.company || 'Parking'}{p.reference && <span className="td-badge">{p.reference}</span>}</div>
@@ -192,29 +239,16 @@ export default function TripDetail({
                   <div className="td-card-sub">Return: {formatDTInZone(p.end_datetime)}</div>
                   {p.notes && <div className="td-notes">{p.notes}</div>}
                 </div>
-                {isOwner && (
-                  <div className="td-card-actions">
-                    {isDeleting ? (
-                      <>
-                        <button className="td-del-confirm" onClick={() => { onDeleteItem('trip_parking', id); setConfirmDeleteItem(null) }}>Delete</button>
-                        <button className="td-del-cancel" onClick={() => setConfirmDeleteItem(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="td-edit-btn" onClick={() => setEditParking(p)}>Edit</button>
-                        <button className="td-del-btn" onClick={() => setConfirmDeleteItem({ kind: 'parking', id })}>✕</button>
-                      </>
-                    )}
-                  </div>
-                )}
+                {actionBtns}
               </div>
             )
           }
 
           if (item.kind === 'taxi') {
-            const t = item.data
+            const t = item.data as TripTaxi
             return (
               <div key={id} className="td-card">
+                {reorderBtns}
                 <div className="td-card-icon">🚕</div>
                 <div className="td-card-body">
                   <div className="td-card-title">{t.company || 'Taxi / Transfer'}</div>
@@ -222,31 +256,18 @@ export default function TripDetail({
                   <div className="td-card-sub">{formatDTInZone(t.collection_datetime)}</div>
                   {t.notes && <div className="td-notes">{t.notes}</div>}
                 </div>
-                {isOwner && (
-                  <div className="td-card-actions">
-                    {isDeleting ? (
-                      <>
-                        <button className="td-del-confirm" onClick={() => { onDeleteItem('trip_taxis', id); setConfirmDeleteItem(null) }}>Delete</button>
-                        <button className="td-del-cancel" onClick={() => setConfirmDeleteItem(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="td-edit-btn" onClick={() => setEditTaxi(t)}>Edit</button>
-                        <button className="td-del-btn" onClick={() => setConfirmDeleteItem({ kind: 'taxi', id })}>✕</button>
-                      </>
-                    )}
-                  </div>
-                )}
+                {actionBtns}
               </div>
             )
           }
 
           if (item.kind === 'accommodation') {
-            const a = item.data
+            const a = item.data as TripAccommodation
             const icon = ACCOMMODATION_ICONS[a.accommodation_type] ?? '🏠'
             const typeName = ACCOMMODATION_TYPES[a.accommodation_type] ?? a.accommodation_type
             return (
               <div key={id} className="td-card">
+                {reorderBtns}
                 <div className="td-card-icon">{icon}</div>
                 <div className="td-card-body">
                   <div className="td-card-title">
@@ -264,21 +285,7 @@ export default function TripDetail({
                   )}
                   {a.notes && <div className="td-notes">{a.notes}</div>}
                 </div>
-                {isOwner && (
-                  <div className="td-card-actions">
-                    {isDeleting ? (
-                      <>
-                        <button className="td-del-confirm" onClick={() => { onDeleteItem('trip_accommodations', id); setConfirmDeleteItem(null) }}>Delete</button>
-                        <button className="td-del-cancel" onClick={() => setConfirmDeleteItem(null)}>Cancel</button>
-                      </>
-                    ) : (
-                      <>
-                        <button className="td-edit-btn" onClick={() => setEditAccommodation(a)}>Edit</button>
-                        <button className="td-del-btn" onClick={() => setConfirmDeleteItem({ kind: 'accommodation', id })}>✕</button>
-                      </>
-                    )}
-                  </div>
-                )}
+                {actionBtns}
               </div>
             )
           }
@@ -287,27 +294,16 @@ export default function TripDetail({
         })}
       </div>
 
-      {/* Add modals */}
       {addFlight && <FlightForm userId={userId} tripId={trip.id} onSaved={() => { setAddFlight(false); onItemAdded() }} onClose={() => setAddFlight(false)} />}
       {addParking && <ParkingForm userId={userId} tripId={trip.id} onSaved={() => { setAddParking(false); onItemAdded() }} onClose={() => setAddParking(false)} />}
       {addTaxi && <TaxiForm userId={userId} tripId={trip.id} onSaved={() => { setAddTaxi(false); onItemAdded() }} onClose={() => setAddTaxi(false)} />}
       {addAccommodation && <AccommodationForm userId={userId} tripId={trip.id} onSaved={() => { setAddAccommodation(false); onItemAdded() }} onClose={() => setAddAccommodation(false)} />}
-
-      {/* Edit modals */}
       {editFlight && <FlightForm userId={userId} tripId={trip.id} item={editFlight} onSaved={() => { setEditFlight(null); onItemAdded() }} onClose={() => setEditFlight(null)} />}
       {editParking && <ParkingForm userId={userId} tripId={trip.id} item={editParking} onSaved={() => { setEditParking(null); onItemAdded() }} onClose={() => setEditParking(null)} />}
       {editTaxi && <TaxiForm userId={userId} tripId={trip.id} item={editTaxi} onSaved={() => { setEditTaxi(null); onItemAdded() }} onClose={() => setEditTaxi(null)} />}
       {editAccommodation && <AccommodationForm userId={userId} tripId={trip.id} item={editAccommodation} onSaved={() => { setEditAccommodation(null); onItemAdded() }} onClose={() => setEditAccommodation(null)} />}
-
-      {/* Share panel */}
       {showSharePanel && (
-        <TripSharePanel
-          shares={shares}
-          linkedContacts={linkedContacts}
-          onAdd={onAddShare}
-          onRemove={onRemoveShare}
-          onClose={() => setShowSharePanel(false)}
-        />
+        <TripSharePanel shares={shares} linkedContacts={linkedContacts} onAdd={onAddShare} onRemove={onRemoveShare} onClose={() => setShowSharePanel(false)} />
       )}
 
       <style>{`
@@ -319,7 +315,7 @@ export default function TripDetail({
         .td-desc { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.125rem; }
         .td-shared-by { font-size: 0.75rem; color: var(--terracotta); font-weight: 500; margin-top: 0.25rem; }
         .td-header-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
-        .td-confirm-label { font-size: 0.8125rem; color: var(--text-secondary); margin-right: 0.25rem; }
+        .td-confirm-label { font-size: 0.8125rem; color: var(--text-secondary); }
         .td-btn-secondary { padding: 0.375rem 0.75rem; border-radius: 7px; border: 1px solid var(--border); background: white; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
         .td-btn-secondary:hover { background: var(--cream-dark); color: var(--deep-brown); }
         .td-btn-danger { padding: 0.375rem 0.75rem; border-radius: 7px; border: 1px solid #fca5a5; background: white; font-size: 0.8125rem; font-weight: 500; color: #dc2626; cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
@@ -334,6 +330,11 @@ export default function TripDetail({
         .td-empty-sub { font-size: 0.875rem; color: var(--text-muted); max-width: 320px; line-height: 1.6; }
         .td-card { background: white; border: 1px solid var(--border-light); border-radius: 10px; padding: 0.875rem 1rem; display: flex; align-items: flex-start; gap: 0.75rem; transition: box-shadow 0.15s; }
         .td-card:hover { box-shadow: 0 2px 8px var(--shadow-warm-sm); }
+        .td-reorder-btns { display: flex; flex-direction: column; gap: 2px; flex-shrink: 0; opacity: 0; transition: opacity 0.15s; }
+        .td-card:hover .td-reorder-btns { opacity: 1; }
+        .td-reorder-btn { width: 22px; height: 22px; border-radius: 4px; border: 1px solid var(--border-light); background: white; cursor: pointer; font-size: 0.6875rem; color: var(--text-muted); display: flex; align-items: center; justify-content: center; line-height: 1; transition: all 0.12s; padding: 0; }
+        .td-reorder-btn:hover:not(:disabled) { background: var(--cream-dark); color: var(--deep-brown); border-color: var(--border); }
+        .td-reorder-btn:disabled { opacity: 0.25; cursor: default; }
         .td-card-icon { font-size: 1.25rem; flex-shrink: 0; margin-top: 1px; }
         .td-card-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 0.25rem; }
         .td-card-title { font-size: 0.9375rem; font-weight: 600; color: var(--deep-brown); display: flex; align-items: center; gap: 0.5rem; flex-wrap: wrap; }

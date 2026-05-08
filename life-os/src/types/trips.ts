@@ -23,6 +23,7 @@ export interface TripFlight {
   arrive_datetime: string
   arrive_timezone: string | null
   notes: string | null
+  sort_order: number | null
   created_at: string
 }
 
@@ -35,6 +36,7 @@ export interface TripParking {
   start_datetime: string
   end_datetime: string
   notes: string | null
+  sort_order: number | null
   created_at: string
 }
 
@@ -46,6 +48,7 @@ export interface TripTaxi {
   collection_address: string
   collection_datetime: string
   notes: string | null
+  sort_order: number | null
   created_at: string
 }
 
@@ -60,6 +63,7 @@ export interface TripAccommodation {
   check_in_date: string | null
   check_out_date: string | null
   notes: string | null
+  sort_order: number | null
   created_at: string
 }
 
