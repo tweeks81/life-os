@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { flightDuration } from '@/types/trips'
+import { TripFlight, flightDuration } from '@/types/trips'
 
 const TIMEZONES: { value: string; label: string }[] = [
   { value: 'UTC', label: 'UTC / GMT' },
@@ -71,9 +71,21 @@ function tzOffsetLabel(tz: string): string {
   }
 }
 
+// Convert a UTC ISO string to "YYYY-MM-DDTHH:MM" in the given timezone (for datetime-local inputs)
+function utcToLocal(utcISO: string, tz: string): string {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', hour12: false,
+  }).formatToParts(new Date(utcISO))
+  const get = (type: string) => parts.find(p => p.type === type)?.value ?? '00'
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}`
+}
+
+// Convert a "YYYY-MM-DDTHH:MM" local string in a given timezone to a UTC ISO string
 function localToUTC(localDatetime: string, tz: string): string {
-  // Convert a datetime-local string (e.g. "2026-06-05T14:30") in a given timezone to UTC ISO string
-  const base = new Date(localDatetime + ':00Z') // treat as UTC as starting point
+  const base = new Date(localDatetime + ':00Z')
   const parts = new Intl.DateTimeFormat('en-US', {
     timeZone: tz,
     year: 'numeric', month: '2-digit', day: '2-digit',
@@ -87,39 +99,43 @@ function localToUTC(localDatetime: string, tz: string): string {
 export default function FlightForm({
   userId,
   tripId,
+  item,
   onSaved,
   onClose,
 }: {
   userId: string
   tripId: string
+  item?: TripFlight
   onSaved: () => void
   onClose: () => void
 }) {
   const supabase = createClient()
   const browserTz = getBrowserTz()
+  const isEdit = !!item
 
-  const [departAirport, setDepartAirport] = useState('')
-  const [departTerminal, setDepartTerminal] = useState('')
-  const [departDatetime, setDepartDatetime] = useState('')
-  const [departTz, setDepartTz] = useState(browserTz)
-  const [flightNumber, setFlightNumber] = useState('')
-  const [bookingRef, setBookingRef] = useState('')
-  const [bookedVia, setBookedVia] = useState('')
-  const [arriveAirport, setArriveAirport] = useState('')
-  const [arriveTerminal, setArriveTerminal] = useState('')
-  const [arriveDatetime, setArriveDatetime] = useState('')
-  const [arriveTz, setArriveTz] = useState(browserTz)
+  const initDepartTz = item?.depart_timezone ?? browserTz
+  const initArriveTz = item?.arrive_timezone ?? browserTz
+
+  const [departAirport, setDepartAirport] = useState(item?.depart_airport ?? '')
+  const [departTerminal, setDepartTerminal] = useState(item?.depart_terminal ?? '')
+  const [departDatetime, setDepartDatetime] = useState(item ? utcToLocal(item.depart_datetime, initDepartTz) : '')
+  const [departTz, setDepartTz] = useState(initDepartTz)
+  const [flightNumber, setFlightNumber] = useState(item?.flight_number ?? '')
+  const [bookingRef, setBookingRef] = useState(item?.booking_reference ?? '')
+  const [bookedVia, setBookedVia] = useState(item?.booked_via ?? '')
+  const [arriveAirport, setArriveAirport] = useState(item?.arrive_airport ?? '')
+  const [arriveTerminal, setArriveTerminal] = useState(item?.arrive_terminal ?? '')
+  const [arriveDatetime, setArriveDatetime] = useState(item ? utcToLocal(item.arrive_datetime, initArriveTz) : '')
+  const [arriveTz, setArriveTz] = useState(initArriveTz)
+  const [notes, setNotes] = useState(item?.notes ?? '')
   const [duration, setDuration] = useState('')
-  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   useEffect(() => {
     if (departDatetime && arriveDatetime) {
       try {
-        const departUTC = localToUTC(departDatetime, departTz)
-        const arriveUTC = localToUTC(arriveDatetime, arriveTz)
-        setDuration(flightDuration(departUTC, arriveUTC))
+        setDuration(flightDuration(localToUTC(departDatetime, departTz), localToUTC(arriveDatetime, arriveTz)))
       } catch {
         setDuration('')
       }
@@ -134,9 +150,7 @@ export default function FlightForm({
     if (!departDatetime) { setError('Departure date/time is required.'); return }
     if (!arriveDatetime) { setError('Arrival date/time is required.'); return }
     setSaving(true)
-    const { error: err } = await (supabase as any).from('trip_flights').insert({
-      trip_id: tripId,
-      user_id: userId,
+    const payload = {
       depart_airport: departAirport.trim(),
       depart_terminal: departTerminal.trim() || null,
       depart_datetime: localToUTC(departDatetime, departTz),
@@ -149,7 +163,11 @@ export default function FlightForm({
       arrive_datetime: localToUTC(arriveDatetime, arriveTz),
       arrive_timezone: arriveTz,
       notes: notes.trim() || null,
-    })
+    }
+    const q = isEdit
+      ? (supabase as any).from('trip_flights').update(payload).eq('id', item!.id)
+      : (supabase as any).from('trip_flights').insert({ ...payload, trip_id: tripId, user_id: userId })
+    const { error: err } = await q
     if (err) { setError(err.message); setSaving(false); return }
     onSaved()
   }
@@ -158,7 +176,7 @@ export default function FlightForm({
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box card">
         <div className="modal-header">
-          <h2 className="modal-title">✈️ Add flight</h2>
+          <h2 className="modal-title">✈️ {isEdit ? 'Edit flight' : 'Add flight'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
@@ -184,9 +202,7 @@ export default function FlightForm({
               <label className="label">Time zone</label>
               <select className="input-field" value={departTz} onChange={e => setDepartTz(e.target.value)}>
                 {TIMEZONES.map(tz => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label} ({tzOffsetLabel(tz.value)})
-                  </option>
+                  <option key={tz.value} value={tz.value}>{tz.label} ({tzOffsetLabel(tz.value)})</option>
                 ))}
               </select>
             </div>
@@ -228,16 +244,12 @@ export default function FlightForm({
               <label className="label">Time zone</label>
               <select className="input-field" value={arriveTz} onChange={e => setArriveTz(e.target.value)}>
                 {TIMEZONES.map(tz => (
-                  <option key={tz.value} value={tz.value}>
-                    {tz.label} ({tzOffsetLabel(tz.value)})
-                  </option>
+                  <option key={tz.value} value={tz.value}>{tz.label} ({tzOffsetLabel(tz.value)})</option>
                 ))}
               </select>
             </div>
           </div>
-          {duration && (
-            <div className="duration-badge">✈️ Flight time: <strong>{duration}</strong></div>
-          )}
+          {duration && <div className="duration-badge">✈️ Flight time: <strong>{duration}</strong></div>}
           <div className="field-group">
             <label className="label">Notes</label>
             <textarea className="input-field" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Seat numbers, meal preferences, lounge access…" style={{ resize: 'vertical' }} />
@@ -245,7 +257,7 @@ export default function FlightForm({
         </div>
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Add flight'}</button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add flight'}</button>
         </div>
       </div>
       <style>{`

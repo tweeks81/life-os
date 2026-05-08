@@ -2,23 +2,33 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TripTaxi } from '@/types/trips'
+
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 export default function TaxiForm({
   userId,
   tripId,
+  item,
   onSaved,
   onClose,
 }: {
   userId: string
   tripId: string
+  item?: TripTaxi
   onSaved: () => void
   onClose: () => void
 }) {
   const supabase = createClient()
-  const [company, setCompany] = useState('')
-  const [collectionAddress, setCollectionAddress] = useState('')
-  const [collectionDatetime, setCollectionDatetime] = useState('')
-  const [notes, setNotes] = useState('')
+  const isEdit = !!item
+  const [company, setCompany] = useState(item?.company ?? '')
+  const [collectionAddress, setCollectionAddress] = useState(item?.collection_address ?? '')
+  const [collectionDatetime, setCollectionDatetime] = useState(item ? toDatetimeLocal(item.collection_datetime) : '')
+  const [notes, setNotes] = useState(item?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -26,14 +36,16 @@ export default function TaxiForm({
     if (!collectionAddress.trim()) { setError('Collection address is required.'); return }
     if (!collectionDatetime) { setError('Collection date/time is required.'); return }
     setSaving(true)
-    const { error: err } = await (supabase as any).from('trip_taxis').insert({
-      trip_id: tripId,
-      user_id: userId,
+    const payload = {
       company: company.trim() || null,
       collection_address: collectionAddress.trim(),
       collection_datetime: new Date(collectionDatetime).toISOString(),
       notes: notes.trim() || null,
-    })
+    }
+    const q = isEdit
+      ? (supabase as any).from('trip_taxis').update(payload).eq('id', item!.id)
+      : (supabase as any).from('trip_taxis').insert({ ...payload, trip_id: tripId, user_id: userId })
+    const { error: err } = await q
     if (err) { setError(err.message); setSaving(false); return }
     onSaved()
   }
@@ -42,7 +54,7 @@ export default function TaxiForm({
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box card">
         <div className="modal-header">
-          <h2 className="modal-title">🚕 Add taxi / transfer</h2>
+          <h2 className="modal-title">🚕 {isEdit ? 'Edit taxi / transfer' : 'Add taxi / transfer'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
@@ -66,7 +78,7 @@ export default function TaxiForm({
         </div>
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Add taxi'}</button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add taxi'}</button>
         </div>
       </div>
       <style>{`

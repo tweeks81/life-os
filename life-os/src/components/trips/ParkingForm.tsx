@@ -2,40 +2,52 @@
 
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import { TripParking } from '@/types/trips'
+
+function toDatetimeLocal(iso: string): string {
+  const d = new Date(iso)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
 
 export default function ParkingForm({
   userId,
   tripId,
+  item,
   onSaved,
   onClose,
 }: {
   userId: string
   tripId: string
+  item?: TripParking
   onSaved: () => void
   onClose: () => void
 }) {
   const supabase = createClient()
-  const [company, setCompany] = useState('')
-  const [reference, setReference] = useState('')
-  const [startDatetime, setStartDatetime] = useState('')
-  const [endDatetime, setEndDatetime] = useState('')
-  const [notes, setNotes] = useState('')
+  const isEdit = !!item
+  const [company, setCompany] = useState(item?.company ?? '')
+  const [reference, setReference] = useState(item?.reference ?? '')
+  const [startDatetime, setStartDatetime] = useState(item ? toDatetimeLocal(item.start_datetime) : '')
+  const [endDatetime, setEndDatetime] = useState(item ? toDatetimeLocal(item.end_datetime) : '')
+  const [notes, setNotes] = useState(item?.notes ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleSave = async () => {
     if (!startDatetime) { setError('Arrival date/time is required.'); return }
-    if (!endDatetime) { setError('End date/time is required.'); return }
+    if (!endDatetime) { setError('Return date/time is required.'); return }
     setSaving(true)
-    const { error: err } = await (supabase as any).from('trip_parking').insert({
-      trip_id: tripId,
-      user_id: userId,
+    const payload = {
       company: company.trim() || null,
       reference: reference.trim() || null,
       start_datetime: new Date(startDatetime).toISOString(),
       end_datetime: new Date(endDatetime).toISOString(),
       notes: notes.trim() || null,
-    })
+    }
+    const q = isEdit
+      ? (supabase as any).from('trip_parking').update(payload).eq('id', item!.id)
+      : (supabase as any).from('trip_parking').insert({ ...payload, trip_id: tripId, user_id: userId })
+    const { error: err } = await q
     if (err) { setError(err.message); setSaving(false); return }
     onSaved()
   }
@@ -44,7 +56,7 @@ export default function ParkingForm({
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box card">
         <div className="modal-header">
-          <h2 className="modal-title">🅿️ Add parking</h2>
+          <h2 className="modal-title">🅿️ {isEdit ? 'Edit parking' : 'Add parking'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
         <div className="modal-body">
@@ -76,7 +88,7 @@ export default function ParkingForm({
         </div>
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
-          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : 'Add parking'}</button>
+          <button className="btn-primary" onClick={handleSave} disabled={saving}>{saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add parking'}</button>
         </div>
       </div>
       <style>{`
