@@ -111,6 +111,12 @@ export default function TripsShell({
     if (selectedTrip) await loadShares(selectedTrip.id)
   }, [supabase, selectedTrip, loadShares])
 
+  const handleReorderItems = useCallback(async (updates: { table: string; id: string; sortOrder: number }[]) => {
+    await Promise.all(
+      updates.map(u => (supabase as any).from(u.table).update({ sort_order: u.sortOrder }).eq('id', u.id))
+    )
+  }, [supabase])
+
   const isOwner = selectedTrip ? selectedTrip.user_id === userId : false
 
   // Find owner name for shared trips
@@ -150,6 +156,7 @@ export default function TripsShell({
               onDeleteItem={handleDeleteItem}
               onAddShare={handleAddShare}
               onRemoveShare={handleRemoveShare}
+              onReorderItems={handleReorderItems}
             />
           ) : (
             <div className="trips-empty">

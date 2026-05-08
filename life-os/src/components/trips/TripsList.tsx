@@ -134,7 +134,7 @@ export default function TripsList({
           gap: 0.125rem;
           min-width: 0;
         }
-        .trip-item-name-row { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
+        .trip-item-name-row { display: flex; align-items: center; gap: 0.375rem; min-width: 0; overflow: hidden; }
         .trip-item-name {
           font-size: 0.875rem;
           font-weight: 500;
@@ -142,6 +142,8 @@ export default function TripsList({
           overflow: hidden;
           text-overflow: ellipsis;
           white-space: nowrap;
+          flex: 1;
+          min-width: 0;
         }
         .trip-item-active .trip-item-name { color: var(--terracotta); }
         .trip-shared-tag { font-size: 0.625rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--terracotta); background: #fef0ec; border-radius: 3px; padding: 0.0625rem 0.3rem; flex-shrink: 0; }
