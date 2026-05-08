@@ -190,7 +190,7 @@ export function generateEventsForRange(
       const thisYear = new Date(y, dob.getMonth(), dob.getDate())
       if (thisYear >= startDate && thisYear <= endDate) {
         const age = y - dob.getFullYear()
-        const name = `${contact.first_name} ${contact.last_name}`
+        const name = `${contact.first_name}${contact.last_name ? ` ${contact.last_name}` : ''}`
         events.push({
           id: `contact-bday-${contact.id}-${y}`,
           title: `${name}'s Birthday${age > 0 ? ` (${age})` : ''}`,
