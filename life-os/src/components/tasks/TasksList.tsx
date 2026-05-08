@@ -1,7 +1,7 @@
 'use client'
 
 import { useMemo } from 'react'
-import { Task, Project, PRIORITY_LABELS, PRIORITY_COLOURS, PRIORITY_BG, CATEGORY_LABELS, CONTEXT_ICONS } from '@/types/tasks'
+import { Task, Project, TaskCategory, PRIORITY_LABELS, PRIORITY_COLOURS, PRIORITY_BG, CATEGORY_LABELS, CONTEXT_ICONS } from '@/types/tasks'
 
 type FilterStatus = 'active' | 'completed' | 'all'
 
@@ -14,11 +14,13 @@ export default function TasksList({
   filterStatus,
   filterContext,
   filterPriority,
+  filterCategory,
   stats,
   onSelectTask,
   onFilterStatus,
   onFilterContext,
   onFilterPriority,
+  onFilterCategory,
   onNewTask,
 }: {
   tasks: Task[]
@@ -29,11 +31,13 @@ export default function TasksList({
   filterStatus: FilterStatus
   filterContext: string
   filterPriority: string
+  filterCategory: string
   stats: { active: number; p1: number; projects: number; completed: number }
   onSelectTask: (t: Task) => void
   onFilterStatus: (s: FilterStatus) => void
   onFilterContext: (c: string) => void
   onFilterPriority: (p: string) => void
+  onFilterCategory: (c: string) => void
   onNewTask: () => void
 }) {
   const filtered = useMemo(() => {
@@ -54,8 +58,11 @@ export default function TasksList({
     // Priority filter
     if (filterPriority) list = list.filter(t => t.priority === parseInt(filterPriority))
 
+    // Category filter
+    if (filterCategory) list = list.filter(t => t.category === filterCategory)
+
     return list
-  }, [tasks, selectedProjectId, filterStatus, filterContext, filterPriority])
+  }, [tasks, selectedProjectId, filterStatus, filterContext, filterPriority, filterCategory])
 
   // Group by project
   const grouped = useMemo(() => {
@@ -77,7 +84,7 @@ export default function TasksList({
     return { projectGroups: Object.values(projectGroups), ungrouped: withoutProject }
   }, [filtered, projects])
 
-  const hasFilters = filterContext || filterPriority
+  const hasFilters = filterContext || filterPriority || filterCategory
 
   return (
     <div className="tasks-list">
@@ -123,6 +130,16 @@ export default function TasksList({
         <div className="filter-selects">
           <select
             className="filter-select"
+            value={filterCategory}
+            onChange={e => onFilterCategory(e.target.value)}
+          >
+            <option value="">All categories</option>
+            {(Object.entries(CATEGORY_LABELS) as [TaskCategory, string][]).map(([val, label]) => (
+              <option key={val} value={val}>{label}</option>
+            ))}
+          </select>
+          <select
+            className="filter-select"
             value={filterContext}
             onChange={e => onFilterContext(e.target.value)}
           >
@@ -146,7 +163,7 @@ export default function TasksList({
             <option value="4">P4 Low</option>
           </select>
           {hasFilters && (
-            <button className="filter-clear" onClick={() => { onFilterContext(''); onFilterPriority('') }}>
+            <button className="filter-clear" onClick={() => { onFilterCategory(''); onFilterContext(''); onFilterPriority('') }}>
               Clear filters
             </button>
           )}
