@@ -21,6 +21,7 @@ export default function TaskDetail({
   onClose,
   onTaskSaved,
   onActionAdded,
+  onDelete,
 }: {
   task: Task
   actions: TaskAction[]
