@@ -8,6 +8,7 @@ const MORE_LINKS = [
   { href: '/contacts', label: 'Contacts', icon: '👥' },
   { href: '/properties', label: 'Properties', icon: '🏠' },
   { href: '/vehicles', label: 'Vehicles', icon: '🚗' },
+  { href: '/trips', label: 'Trips', icon: '✈️' },
   { href: '/profile', label: 'Profile', icon: '👤' },
 ]
 

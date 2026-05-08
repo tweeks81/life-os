@@ -379,3 +379,18 @@
     padding-bottom: 64px !important;
   }
 }
+
+/* ── Trips mobile ── */
+@media (max-width: 768px) {
+  .trips-shell { height: 100dvh !important; }
+  .trips-body { flex-direction: column !important; }
+  .trips-sidebar { width: 100% !important; flex-shrink: 0 !important; border-right: none !important; border-bottom: 1px solid var(--border-light) !important; max-height: 40dvh !important; }
+  .trips-main .trip-detail {
+    position: fixed !important;
+    inset: 0 !important;
+    z-index: 200 !important;
+    animation: slideUpMobile 0.28s ease !important;
+    padding-bottom: 64px !important;
+  }
+  .td-add-bar { overflow-x: auto !important; flex-wrap: nowrap !important; }
+}
