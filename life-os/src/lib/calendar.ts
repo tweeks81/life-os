@@ -134,7 +134,7 @@ export interface RawCalendarEvent {
 export interface ContactBirthday {
   id: string
   first_name: string
-  last_name: string
+  last_name: string | null
   date_of_birth: string
 }
 
@@ -193,7 +193,7 @@ export function generateEventsForRange(
         const name = `${contact.first_name}${contact.last_name ? ` ${contact.last_name}` : ''}`
         events.push({
           id: `contact-bday-${contact.id}-${y}`,
-          title: `${name}'s Birthday${age > 0 ? ` (${age})` : ''}`,
+          title: `${possessive(name)} Birthday${age > 0 ? ` (${age})` : ''}`,
           type: 'birthday',
           date: thisYear,
           isRecurring: true,
@@ -246,6 +246,10 @@ export function generateEventsForRange(
   // Sort by date
   events.sort((a, b) => a.date.getTime() - b.date.getTime())
   return events
+}
+
+function possessive(name: string): string {
+  return name.endsWith('s') ? `${name}'` : `${name}'s`
 }
 
 function getOrdinalSuffix(n: number): string {
