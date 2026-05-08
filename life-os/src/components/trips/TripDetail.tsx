@@ -4,7 +4,7 @@ import { useState, useMemo } from 'react'
 import {
   Trip, TripFlight, TripParking, TripTaxi, TripAccommodation,
   ACCOMMODATION_ICONS, ACCOMMODATION_TYPES,
-  formatDT, formatDate, formatTime, flightDuration,
+  formatDTInZone, tzShort, formatDate, flightDuration,
 } from '@/types/trips'
 import FlightForm from './FlightForm'
 import ParkingForm from './ParkingForm'
@@ -124,10 +124,18 @@ export default function TripDetail({
                     {f.flight_number && <span className="td-badge">{f.flight_number}</span>}
                   </div>
                   <div className="td-card-row">
-                    <span className="td-card-sub">Depart: {formatDT(f.depart_datetime)}{f.depart_terminal ? ` · T${f.depart_terminal}` : ''}</span>
+                    <span className="td-card-sub">
+                      Depart: {formatDTInZone(f.depart_datetime, f.depart_timezone)}
+                      {f.depart_timezone && <span className="td-tz"> {tzShort(f.depart_datetime, f.depart_timezone)}</span>}
+                      {f.depart_terminal ? ` · T${f.depart_terminal}` : ''}
+                    </span>
                   </div>
                   <div className="td-card-row">
-                    <span className="td-card-sub">Arrive: {formatDT(f.arrive_datetime)}{f.arrive_terminal ? ` · T${f.arrive_terminal}` : ''}</span>
+                    <span className="td-card-sub">
+                      Arrive: {formatDTInZone(f.arrive_datetime, f.arrive_timezone)}
+                      {f.arrive_timezone && <span className="td-tz"> {tzShort(f.arrive_datetime, f.arrive_timezone)}</span>}
+                      {f.arrive_terminal ? ` · T${f.arrive_terminal}` : ''}
+                    </span>
                     {dur && <span className="td-duration">{dur}</span>}
                   </div>
                   {f.booking_reference && <div className="td-card-sub">Ref: {f.booking_reference}{f.booked_via ? ` · via ${f.booked_via}` : ''}</div>}
@@ -427,6 +435,11 @@ export default function TripDetail({
           background: var(--parchment);
           border-radius: 4px;
           padding: 0.125rem 0.375rem;
+        }
+        .td-tz {
+          font-size: 0.75rem;
+          color: var(--text-muted);
+          font-style: italic;
         }
 
         .td-card-actions {
