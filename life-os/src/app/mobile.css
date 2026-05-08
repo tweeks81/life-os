@@ -321,6 +321,20 @@
   .picker-list {
     max-height: 160px !important;
   }
+
+  /* ── Raise all modal/dialog backdrops above the bottom nav ── */
+  /* Nav bar is z-index: 300 — modals must be higher so their footers are reachable */
+  .modal-backdrop,
+  .rp-backdrop,
+  .confirm-backdrop {
+    z-index: 400 !important;
+  }
+
+  /* Ensure modal/picker footers respect iOS home-indicator safe area */
+  .modal-footer,
+  .rp-footer {
+    padding-bottom: calc(0.875rem + env(safe-area-inset-bottom, 0px)) !important;
+  }
 }
 
 /* ── Properties mobile ── */
