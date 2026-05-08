@@ -63,6 +63,20 @@ export interface TripAccommodation {
   created_at: string
 }
 
+export interface TripShare {
+  id: string
+  trip_id: string
+  owner_id: string
+  shared_with_user_id: string
+  name: string | null
+  created_at: string
+}
+
+export interface LinkedContactForSharing {
+  user_id: string
+  full_name: string | null
+}
+
 export const ACCOMMODATION_TYPES: Record<string, string> = {
   hotel: 'Hotel',
   villa: 'Villa',

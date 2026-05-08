@@ -5,11 +5,13 @@ import { Trip } from '@/types/trips'
 export default function TripsList({
   trips,
   selectedTripId,
+  userId,
   onSelectTrip,
   onNewTrip,
 }: {
   trips: Trip[]
   selectedTripId: string | null
+  userId: string
   onSelectTrip: (t: Trip) => void
   onNewTrip: () => void
 }) {
@@ -35,7 +37,10 @@ export default function TripsList({
           >
             <span className="trip-item-icon">✈</span>
             <div className="trip-item-body">
-              <span className="trip-item-name">{trip.name}</span>
+              <div className="trip-item-name-row">
+                <span className="trip-item-name">{trip.name}</span>
+                {trip.user_id !== userId && <span className="trip-shared-tag">Shared</span>}
+              </div>
               {trip.description && (
                 <span className="trip-item-desc">{trip.description}</span>
               )}
@@ -129,6 +134,7 @@ export default function TripsList({
           gap: 0.125rem;
           min-width: 0;
         }
+        .trip-item-name-row { display: flex; align-items: center; gap: 0.375rem; min-width: 0; }
         .trip-item-name {
           font-size: 0.875rem;
           font-weight: 500;
@@ -138,6 +144,7 @@ export default function TripsList({
           white-space: nowrap;
         }
         .trip-item-active .trip-item-name { color: var(--terracotta); }
+        .trip-shared-tag { font-size: 0.625rem; font-weight: 700; letter-spacing: 0.05em; text-transform: uppercase; color: var(--terracotta); background: #fef0ec; border-radius: 3px; padding: 0.0625rem 0.3rem; flex-shrink: 0; }
         .trip-item-desc {
           font-size: 0.75rem;
           color: var(--text-muted);
