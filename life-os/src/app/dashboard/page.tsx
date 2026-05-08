@@ -39,6 +39,7 @@ export default async function DashboardPage() {
 
   const [
     { data: profile },
+    { data: nextFlightRow },
     { data: ownEvents },
     { data: contacts },
     { data: linkedRaw },
@@ -55,6 +56,7 @@ export default async function DashboardPage() {
     { data: serviceRows },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
+    (supabase as any).from('trip_flights').select('trip_id, depart_datetime, arrive_airport').gte('depart_datetime', new Date().toISOString()).order('depart_datetime', { ascending: true }).limit(1).maybeSingle(),
     (supabase as any).from('calendar_events').select('*').eq('user_id', user.id),
     supabase.from('contacts').select('id, first_name, last_name, date_of_birth').not('date_of_birth', 'is', null),
     (supabase as any).from('linked_contacts').select('linked_user_id').eq('user_id', user.id),
@@ -132,12 +134,26 @@ export default async function DashboardPage() {
     return { id: v.id, name: v.name, reg_number: v.reg_number, criticalIssues, warningIssues }
   }).filter((v: any) => v.criticalIssues.length > 0 || v.warningIssues.length > 0)
 
+  let nextTrip: { name: string; daysUntil: number; destination: string | null } | null = null
+  if (nextFlightRow) {
+    const { data: tripRow } = await (supabase as any).from('trips').select('name').eq('id', nextFlightRow.trip_id).single()
+    if (tripRow) {
+      const departDate = new Date(nextFlightRow.depart_datetime)
+      departDate.setHours(0, 0, 0, 0)
+      const todayMidnight = new Date(today)
+      todayMidnight.setHours(0, 0, 0, 0)
+      const daysUntil = Math.round((departDate.getTime() - todayMidnight.getTime()) / 86400000)
+      nextTrip = { name: tripRow.name, daysUntil, destination: nextFlightRow.arrive_airport ?? null }
+    }
+  }
+
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
   return (
     <DashboardClient
       profile={profile}
       firstName={firstName}
+      nextTrip={nextTrip}
       calEvents={calEvents.map(e => ({
         id: e.id,
         title: e.title,

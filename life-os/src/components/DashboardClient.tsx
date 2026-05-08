@@ -74,6 +74,7 @@ export default function DashboardClient({
   totalActiveTasks,
   totalProjects,
   vehicleWarnings,
+  nextTrip,
 }: {
   profile: any
   firstName: string
@@ -83,6 +84,7 @@ export default function DashboardClient({
   totalActiveTasks: number
   totalProjects: number
   vehicleWarnings: { id: string; name: string; reg_number: string | null; criticalIssues: string[]; warningIssues: string[] }[]
+  nextTrip: { name: string; daysUntil: number; destination: string | null } | null
 }) {
   const now = new Date()
   const hour = now.getHours()
@@ -167,6 +169,8 @@ export default function DashboardClient({
             </div>
           </div>
         )}
+
+        {nextTrip && <NextTripCard trip={nextTrip} />}
 
         <div className="dash-columns">
 
@@ -298,6 +302,17 @@ export default function DashboardClient({
         .vehicle-alert-issues { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
         .issue-critical { font-size: 0.8rem; font-weight: 600; color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; padding: 0.05rem 0.4rem; border-radius: 4px; }
         .issue-warning { font-size: 0.8rem; font-weight: 600; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 0.05rem 0.4rem; border-radius: 4px; }
+        .next-trip-card { display: flex; align-items: center; gap: 1rem; background: linear-gradient(135deg, #1a3a5c 0%, #2d5a8e 100%); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; text-decoration: none; color: inherit; transition: all 0.2s; box-shadow: 0 2px 12px rgba(26,58,92,0.18); }
+        .next-trip-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,58,92,0.28); }
+        .next-trip-plane { font-size: 1.75rem; flex-shrink: 0; }
+        .next-trip-body { flex: 1; min-width: 0; }
+        .next-trip-label { font-size: 0.6875rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(255,255,255,0.6); margin-bottom: 0.2rem; }
+        .next-trip-name { font-size: 1.0625rem; font-weight: 600; color: white; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .next-trip-dest { font-size: 0.8125rem; color: rgba(255,255,255,0.65); margin-top: 0.1rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .next-trip-countdown { flex-shrink: 0; text-align: center; }
+        .next-trip-days-num { font-size: 2rem; font-weight: 700; line-height: 1; color: white; font-family: var(--font-display); }
+        .next-trip-days-label { font-size: 0.6875rem; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.6); }
+        .next-trip-today { font-size: 1.25rem; font-weight: 700; color: #fbbf24; }
         @media (max-width: 768px) {
           .dash-main { padding: 1.25rem 1rem 2rem; }
           .dash-header { flex-direction: column; align-items: flex-start; gap: 1rem; margin-bottom: 1.5rem; }
@@ -353,6 +368,39 @@ function CalEventRow({ event }: { event: DashCalEvent }) {
       <div className="cal-row-content">
         <div className="cal-row-title">{event.title}</div>
         <div className="cal-row-type">{EVENT_TYPE_LABELS[event.type]}</div>
+      </div>
+    </Link>
+  )
+}
+
+function NextTripCard({ trip }: { trip: { name: string; daysUntil: number; destination: string | null } }) {
+  const isToday = trip.daysUntil === 0
+  const isTomorrow = trip.daysUntil === 1
+
+  return (
+    <Link href="/trips" className="next-trip-card">
+      <span className="next-trip-plane">✈</span>
+      <div className="next-trip-body">
+        <div className="next-trip-label">Next trip</div>
+        <div className="next-trip-name">{trip.name}</div>
+        {trip.destination && (
+          <div className="next-trip-dest">to {trip.destination}</div>
+        )}
+      </div>
+      <div className="next-trip-countdown">
+        {isToday ? (
+          <div className="next-trip-today">Today!</div>
+        ) : isTomorrow ? (
+          <>
+            <div className="next-trip-days-num">1</div>
+            <div className="next-trip-days-label">day to go</div>
+          </>
+        ) : (
+          <>
+            <div className="next-trip-days-num">{trip.daysUntil}</div>
+            <div className="next-trip-days-label">days to go</div>
+          </>
+        )}
       </div>
     </Link>
   )
