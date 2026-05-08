@@ -32,12 +32,14 @@ export default function TaskDetail({
   onClose: () => void
   onTaskSaved: (t: Task) => void
   onActionAdded: (taskId: string) => void
+  onDelete: () => void
 }) {
   const supabase = createClient()
   const isOwner = task.user_id === userId
   const isShared = !isOwner
   const [editing, setEditing] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [confirmDelete, setConfirmDelete] = useState(false)
   const [savingAction, setSavingAction] = useState(false)
   const [showActionForm, setShowActionForm] = useState(false)
 
@@ -151,10 +153,18 @@ export default function TaskDetail({
             )}
           </div>
           <div className="detail-header-right">
-            {!editing && (
-              <button className="btn-secondary detail-btn" onClick={() => setEditing(true)}>
-                Edit
-              </button>
+            {!editing && !confirmDelete && isOwner && (
+              <button className="btn-secondary detail-btn" onClick={() => setEditing(true)}>Edit</button>
+            )}
+            {!editing && !confirmDelete && isOwner && (
+              <button className="detail-delete-btn" onClick={() => setConfirmDelete(true)}>Delete</button>
+            )}
+            {confirmDelete && (
+              <>
+                <span className="delete-confirm-label">Delete this task?</span>
+                <button className="btn-danger detail-btn" onClick={onDelete}>Yes, delete</button>
+                <button className="btn-secondary detail-btn" onClick={() => setConfirmDelete(false)}>Cancel</button>
+              </>
             )}
             <button className="detail-close mobile-only" onClick={onClose} style={{display:'none'}}>← Back</button>
             <button className="detail-close desktop-only" onClick={onClose}>✕</button>
@@ -444,6 +454,40 @@ export default function TaskDetail({
         .detail-btn {
           font-size: 0.8125rem;
           padding: 0.375rem 0.875rem;
+        }
+
+        .detail-delete-btn {
+          font-size: 0.8125rem;
+          padding: 0.375rem 0.875rem;
+          border-radius: 8px;
+          border: 1px solid #fecaca;
+          background: none;
+          color: #dc2626;
+          cursor: pointer;
+          font-family: var(--font-body);
+          transition: all 0.15s;
+        }
+        .detail-delete-btn:hover { background: #fef2f2; }
+
+        .btn-danger {
+          font-size: 0.8125rem;
+          padding: 0.375rem 0.875rem;
+          border-radius: 8px;
+          border: none;
+          background: #dc2626;
+          color: white;
+          cursor: pointer;
+          font-family: var(--font-body);
+          font-weight: 600;
+          transition: background 0.15s;
+        }
+        .btn-danger:hover { background: #b91c1c; }
+
+        .delete-confirm-label {
+          font-size: 0.8125rem;
+          color: #dc2626;
+          font-weight: 500;
+          white-space: nowrap;
         }
 
         .detail-close {
