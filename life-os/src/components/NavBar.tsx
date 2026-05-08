@@ -23,6 +23,7 @@ export default function NavBar({
     { href: '/contacts', label: 'Contacts' },
     { href: '/properties', label: 'Properties' },
     { href: '/vehicles', label: 'Vehicles' },
+    { href: '/trips', label: 'Trips' },
   ]
 
   useEffect(() => {
