@@ -42,6 +42,7 @@ export default function TasksShell({
   const [filterStatus, setFilterStatus] = useState<FilterStatus>('active')
   const [filterContext, setFilterContext] = useState<string>('')
   const [filterPriority, setFilterPriority] = useState<string>('')
+  const [filterCategory, setFilterCategory] = useState<string>('')
   const [showTaskForm, setShowTaskForm] = useState(false)
   const [showProjectForm, setShowProjectForm] = useState(false)
   const [editingProject, setEditingProject] = useState<Project | null>(null)
@@ -178,11 +179,13 @@ export default function TasksShell({
             filterStatus={filterStatus}
             filterContext={filterContext}
             filterPriority={filterPriority}
+            filterCategory={filterCategory}
             stats={stats}
             onSelectTask={openTask}
             onFilterStatus={setFilterStatus}
             onFilterContext={setFilterContext}
             onFilterPriority={setFilterPriority}
+            onFilterCategory={setFilterCategory}
             onNewTask={() => setShowTaskForm(true)}
           />
           <div className="mobile-bottom-spacer" />
