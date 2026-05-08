@@ -10,9 +10,17 @@ import { ShareRecord } from '@/components/tasks/SharePanel'
 import NavBar from '../NavBar'
 import CalendarMonthView from './CalendarMonthView'
 import CalendarWeekView from './CalendarWeekView'
+import CalendarListView from './CalendarListView'
 import CalendarEventForm from './CalendarEventForm'
 
-type ViewMode = 'month' | 'week'
+type ViewMode = 'month' | 'week' | 'list'
+
+function getSeriesKey(ev: CalendarEvent): string {
+  if (!ev.isRecurring) return ev.id
+  if (ev.sourceId) return `src-${ev.sourceId}`
+  if (ev.id.startsWith('my-birthday')) return 'my-birthday'
+  return `holiday-${ev.title}`
+}
 
 export default function CalendarShell({
   userId,
@@ -56,6 +64,26 @@ export default function CalendarShell({
   const filteredEvents = useMemo(() => {
     return allEvents.filter(e => activeTypes.has(e.type))
   }, [allEvents, activeTypes])
+
+  // List view: next 12 months from today, deduplicated so recurring events appear only once
+  const listEvents = useMemo(() => {
+    const start = new Date()
+    start.setHours(0, 0, 0, 0)
+    const end = new Date(start)
+    end.setFullYear(end.getFullYear() + 1)
+    end.setDate(end.getDate() - 1)
+
+    const raw = generateEventsForRange(start, end, dbEvents, contacts, profile)
+      .filter(e => activeTypes.has(e.type))
+
+    const seen = new Set<string>()
+    return raw.filter(ev => {
+      const key = getSeriesKey(ev)
+      if (seen.has(key)) return false
+      seen.add(key)
+      return true
+    })
+  }, [dbEvents, contacts, profile, activeTypes])
 
   const toggleType = (type: EventType) => {
     setActiveTypes(prev => {
@@ -137,7 +165,7 @@ export default function CalendarShell({
   const navigate = (direction: number) => {
     if (viewMode === 'month') {
       setCurrentDate(d => new Date(d.getFullYear(), d.getMonth() + direction, 1))
-    } else {
+    } else if (viewMode === 'week') {
       setCurrentDate(d => {
         const next = new Date(d)
         next.setDate(next.getDate() + direction * 7)
@@ -160,13 +188,16 @@ export default function CalendarShell({
 
       <div className="cal-toolbar">
         <div className="cal-nav">
-          <button className="cal-nav-btn" onClick={() => navigate(-1)}>‹</button>
-          <button className="cal-today-btn" onClick={goToToday}>Today</button>
-          <button className="cal-nav-btn" onClick={() => navigate(1)}>›</button>
+          {viewMode !== 'list' && <>
+            <button className="cal-nav-btn" onClick={() => navigate(-1)}>‹</button>
+            <button className="cal-today-btn" onClick={goToToday}>Today</button>
+            <button className="cal-nav-btn" onClick={() => navigate(1)}>›</button>
+          </>}
           <h2 className="cal-heading">
             {viewMode === 'month'
               ? currentDate.toLocaleDateString('en-GB', { month: 'long', year: 'numeric' })
-              : (() => {
+              : viewMode === 'week'
+              ? (() => {
                   const mon = new Date(currentDate)
                   const day = mon.getDay()
                   const diff = day === 0 ? -6 : 1 - day
@@ -175,6 +206,7 @@ export default function CalendarShell({
                   sun.setDate(sun.getDate() + 6)
                   return `${mon.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })} – ${sun.toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })}`
                 })()
+              : 'Upcoming Events'
             }
           </h2>
         </div>
@@ -200,6 +232,7 @@ export default function CalendarShell({
           <div className="view-toggle">
             <button className={`view-btn ${viewMode === 'month' ? 'active' : ''}`} onClick={() => setViewMode('month')}>Month</button>
             <button className={`view-btn ${viewMode === 'week' ? 'active' : ''}`} onClick={() => setViewMode('week')}>Week</button>
+            <button className={`view-btn ${viewMode === 'list' ? 'active' : ''}`} onClick={() => setViewMode('list')}>List</button>
           </div>
           <button className="btn-primary add-btn" onClick={() => { setEditingEvent(null); setEditingShares([]); setShowForm(true) }}>
             + Add event
@@ -220,13 +253,23 @@ export default function CalendarShell({
             onEditEvent={handleEditEvent}
             onDeleteEvent={handleDeleteEvent}
           />
-        ) : (
+        ) : viewMode === 'week' ? (
           <CalendarWeekView
             currentDate={currentDate}
             events={filteredEvents}
             today={today}
             selectedEvent={selectedEvent}
             userId={userId}
+            sharedEventIds={sharedWithMeIds}
+            onEventClick={handleEventClick}
+            onEditEvent={handleEditEvent}
+            onDeleteEvent={handleDeleteEvent}
+          />
+        ) : (
+          <CalendarListView
+            events={listEvents}
+            today={today}
+            selectedEvent={selectedEvent}
             sharedEventIds={sharedWithMeIds}
             onEventClick={handleEventClick}
             onEditEvent={handleEditEvent}
