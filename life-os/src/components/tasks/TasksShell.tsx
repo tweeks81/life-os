@@ -130,6 +130,14 @@ export default function TasksShell({
     setTaskActions((data as TaskAction[]) ?? [])
   }, [supabase])
 
+  const handleTaskDeleted = useCallback(async () => {
+    if (!selectedTask) return
+    await supabase.from('tasks').delete().eq('id', selectedTask.id)
+    setSelectedTask(null)
+    setTaskActions([])
+    await refreshTasks()
+  }, [supabase, selectedTask, refreshTasks])
+
   const handleProjectSaved = useCallback(async () => {
     await refreshProjects()
     setShowProjectForm(false)
@@ -203,6 +211,7 @@ export default function TasksShell({
             onClose={closeTask}
             onTaskSaved={handleTaskSaved}
             onActionAdded={handleActionAdded}
+            onDelete={handleTaskDeleted}
           />
         )}
       </div>
