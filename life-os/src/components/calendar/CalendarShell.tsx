@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
   CalendarEvent, EventType, RawCalendarEvent, ContactBirthday, UserProfile,
@@ -49,6 +49,8 @@ export default function CalendarShell({
   const [activeTypes, setActiveTypes] = useState<Set<EventType>>(
     new Set(['birthday', 'anniversary', 'remembrance', 'holiday', 'other'] as EventType[])
   )
+  const [filterOpen, setFilterOpen] = useState(false)
+  const filterRef = useRef<HTMLDivElement>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingEvent, setEditingEvent] = useState<RawCalendarEvent | null>(null)
   const [editingShares, setEditingShares] = useState<ShareRecord[]>([])
@@ -93,6 +95,16 @@ export default function CalendarShell({
       return next
     })
   }
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(e.target as Node)) {
+        setFilterOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
 
   const refreshEvents = useCallback(async () => {
     // Refresh own events
@@ -211,21 +223,43 @@ export default function CalendarShell({
           </h2>
         </div>
 
-        <div className="cal-filters">
-          {allTypes.map(type => (
-            <button
-              key={type}
-              className={`filter-chip ${activeTypes.has(type) ? 'active' : ''}`}
-              onClick={() => toggleType(type)}
-              style={activeTypes.has(type) ? {
-                background: EVENT_TYPE_COLOURS[type] + '20',
-                borderColor: EVENT_TYPE_COLOURS[type],
-                color: EVENT_TYPE_COLOURS[type],
-              } : {}}
-            >
-              {EVENT_TYPE_LABELS[type]}
-            </button>
-          ))}
+        <div className="cal-filter-dropdown" ref={filterRef}>
+          <button
+            className={`cal-filter-btn ${activeTypes.size < allTypes.length ? 'has-filter' : ''}`}
+            onClick={() => setFilterOpen(o => !o)}
+          >
+            <span>
+              {activeTypes.size === allTypes.length
+                ? 'All types'
+                : activeTypes.size === 0
+                ? 'No types'
+                : activeTypes.size === 1
+                ? EVENT_TYPE_LABELS[[...activeTypes][0]]
+                : `${activeTypes.size} of ${allTypes.length} types`}
+            </span>
+            <span className="cal-filter-chevron">{filterOpen ? '▲' : '▼'}</span>
+          </button>
+
+          {filterOpen && (
+            <div className="cal-filter-menu">
+              <div className="cal-filter-menu-top">
+                <button className="cal-filter-quick" onClick={() => setActiveTypes(new Set(allTypes))}>All</button>
+                <button className="cal-filter-quick" onClick={() => setActiveTypes(new Set())}>None</button>
+              </div>
+              {allTypes.map(type => (
+                <label key={type} className="cal-filter-item">
+                  <span className="cal-filter-dot" style={{ background: EVENT_TYPE_COLOURS[type] }} />
+                  <span className="cal-filter-label">{EVENT_TYPE_LABELS[type]}</span>
+                  <input
+                    type="checkbox"
+                    className="cal-filter-check"
+                    checked={activeTypes.has(type)}
+                    onChange={() => toggleType(type)}
+                  />
+                </label>
+              ))}
+            </div>
+          )}
         </div>
 
         <div className="cal-actions">
@@ -298,15 +332,27 @@ export default function CalendarShell({
         .cal-today-btn { font-size: 0.8125rem; font-weight: 500; font-family: var(--font-body); padding: 0.3rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: none; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
         .cal-today-btn:hover { background: var(--cream-dark); color: var(--deep-brown); }
         .cal-heading { font-size: 1rem; font-weight: 600; font-family: var(--font-body); color: var(--deep-brown); white-space: nowrap; margin-left: 0.25rem; min-width: 180px; }
-        .cal-filters { display: flex; align-items: center; gap: 0.375rem; flex: 1; flex-wrap: wrap; }
-        .filter-chip { font-size: 0.75rem; font-weight: 500; font-family: var(--font-body); padding: 0.25rem 0.625rem; border-radius: 100px; border: 1.5px solid var(--border); background: none; color: var(--text-muted); cursor: pointer; transition: all 0.15s; white-space: nowrap; }
-        .filter-chip:hover { border-color: var(--warm-brown); color: var(--deep-brown); }
         .cal-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
         .view-toggle { display: flex; background: var(--parchment); border-radius: 8px; padding: 2px; }
         .view-btn { font-size: 0.8125rem; font-weight: 500; font-family: var(--font-body); padding: 0.3rem 0.75rem; border-radius: 6px; border: none; background: none; cursor: pointer; color: var(--text-secondary); transition: all 0.15s; }
         .view-btn.active { background: white; color: var(--deep-brown); box-shadow: 0 1px 3px var(--shadow-warm); }
         .add-btn { font-size: 0.8125rem; padding: 0.4rem 0.875rem; }
         .cal-body { flex: 1; overflow: hidden; display: flex; flex-direction: column; }
+
+        .cal-filter-dropdown { position: relative; flex-shrink: 0; }
+        .cal-filter-btn { display: flex; align-items: center; gap: 0.5rem; padding: 0.3rem 0.75rem; border-radius: 6px; border: 1.5px solid var(--border); background: white; cursor: pointer; font-size: 0.8125rem; font-weight: 500; font-family: var(--font-body); color: var(--text-secondary); transition: all 0.15s; white-space: nowrap; }
+        .cal-filter-btn:hover { border-color: var(--warm-brown); color: var(--deep-brown); }
+        .cal-filter-btn.has-filter { border-color: var(--warm-brown); color: var(--warm-brown); background: var(--parchment); }
+        .cal-filter-chevron { font-size: 0.6rem; opacity: 0.6; }
+        .cal-filter-menu { position: absolute; top: calc(100% + 6px); left: 0; min-width: 180px; background: white; border: 1px solid var(--border-light); border-radius: 10px; box-shadow: 0 4px 16px var(--shadow-warm); z-index: 100; overflow: hidden; animation: fadeIn 0.12s ease; }
+        .cal-filter-menu-top { display: flex; gap: 0.25rem; padding: 0.5rem 0.625rem 0.25rem; border-bottom: 1px solid var(--border-light); }
+        .cal-filter-quick { font-size: 0.75rem; font-weight: 600; font-family: var(--font-body); padding: 0.2rem 0.625rem; border-radius: 5px; border: 1px solid var(--border); background: none; cursor: pointer; color: var(--text-muted); transition: all 0.12s; }
+        .cal-filter-quick:hover { background: var(--cream-dark); color: var(--deep-brown); }
+        .cal-filter-item { display: flex; align-items: center; gap: 0.625rem; padding: 0.5rem 0.75rem; cursor: pointer; transition: background 0.1s; }
+        .cal-filter-item:hover { background: var(--cream-dark); }
+        .cal-filter-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+        .cal-filter-label { flex: 1; font-size: 0.875rem; color: var(--text-primary); font-family: var(--font-body); }
+        .cal-filter-check { width: 15px; height: 15px; cursor: pointer; accent-color: var(--terracotta); flex-shrink: 0; }
       `}</style>
     </div>
   )
