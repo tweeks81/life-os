@@ -110,6 +110,7 @@ export default function FlightForm({
   const [arriveDatetime, setArriveDatetime] = useState('')
   const [arriveTz, setArriveTz] = useState(browserTz)
   const [duration, setDuration] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -147,6 +148,7 @@ export default function FlightForm({
       arrive_terminal: arriveTerminal.trim() || null,
       arrive_datetime: localToUTC(arriveDatetime, arriveTz),
       arrive_timezone: arriveTz,
+      notes: notes.trim() || null,
     })
     if (err) { setError(err.message); setSaving(false); return }
     onSaved()
@@ -236,6 +238,10 @@ export default function FlightForm({
           {duration && (
             <div className="duration-badge">✈️ Flight time: <strong>{duration}</strong></div>
           )}
+          <div className="field-group">
+            <label className="label">Notes</label>
+            <textarea className="input-field" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Seat numbers, meal preferences, lounge access…" style={{ resize: 'vertical' }} />
+          </div>
         </div>
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Cancel</button>

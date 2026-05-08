@@ -18,6 +18,7 @@ export default function TaxiForm({
   const [company, setCompany] = useState('')
   const [collectionAddress, setCollectionAddress] = useState('')
   const [collectionDatetime, setCollectionDatetime] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -31,6 +32,7 @@ export default function TaxiForm({
       company: company.trim() || null,
       collection_address: collectionAddress.trim(),
       collection_datetime: new Date(collectionDatetime).toISOString(),
+      notes: notes.trim() || null,
     })
     if (err) { setError(err.message); setSaving(false); return }
     onSaved()
@@ -56,6 +58,10 @@ export default function TaxiForm({
           <div className="field-group">
             <label className="label">Collection date & time <span className="req">*</span></label>
             <input className="input-field" type="datetime-local" value={collectionDatetime} onChange={e => setCollectionDatetime(e.target.value)} />
+          </div>
+          <div className="field-group">
+            <label className="label">Notes</label>
+            <textarea className="input-field" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Driver name, contact number, meet point…" style={{ resize: 'vertical' }} />
           </div>
         </div>
         <div className="modal-footer">
