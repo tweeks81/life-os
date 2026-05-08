@@ -161,8 +161,8 @@ export default function TripDetail({
                 <div className="td-card-icon">🅿️</div>
                 <div className="td-card-body">
                   <div className="td-card-title">{p.company || 'Parking'}{p.reference && <span className="td-badge">{p.reference}</span>}</div>
-                  <div className="td-card-sub">Drop off: {formatDT(p.start_datetime)}</div>
-                  <div className="td-card-sub">Return: {formatDT(p.end_datetime)}</div>
+                  <div className="td-card-sub">Drop off: {formatDTInZone(p.start_datetime)}</div>
+                  <div className="td-card-sub">Return: {formatDTInZone(p.end_datetime)}</div>
                 </div>
                 <div className="td-card-actions">
                   {isDeleting ? (
@@ -186,7 +186,7 @@ export default function TripDetail({
                 <div className="td-card-body">
                   <div className="td-card-title">{t.company || 'Taxi / Transfer'}</div>
                   <div className="td-card-sub">Pickup: {t.collection_address}</div>
-                  <div className="td-card-sub">{formatDT(t.collection_datetime)}</div>
+                  <div className="td-card-sub">{formatDTInZone(t.collection_datetime)}</div>
                 </div>
                 <div className="td-card-actions">
                   {isDeleting ? (
