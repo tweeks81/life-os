@@ -139,6 +139,7 @@ export default function TripDetail({
                     {dur && <span className="td-duration">{dur}</span>}
                   </div>
                   {f.booking_reference && <div className="td-card-sub">Ref: {f.booking_reference}{f.booked_via ? ` · via ${f.booked_via}` : ''}</div>}
+                  {f.notes && <div className="td-notes">{f.notes}</div>}
                 </div>
                 <div className="td-card-actions">
                   {isDeleting ? (
@@ -163,6 +164,7 @@ export default function TripDetail({
                   <div className="td-card-title">{p.company || 'Parking'}{p.reference && <span className="td-badge">{p.reference}</span>}</div>
                   <div className="td-card-sub">Drop off: {formatDTInZone(p.start_datetime)}</div>
                   <div className="td-card-sub">Return: {formatDTInZone(p.end_datetime)}</div>
+                  {p.notes && <div className="td-notes">{p.notes}</div>}
                 </div>
                 <div className="td-card-actions">
                   {isDeleting ? (
@@ -187,6 +189,7 @@ export default function TripDetail({
                   <div className="td-card-title">{t.company || 'Taxi / Transfer'}</div>
                   <div className="td-card-sub">Pickup: {t.collection_address}</div>
                   <div className="td-card-sub">{formatDTInZone(t.collection_datetime)}</div>
+                  {t.notes && <div className="td-notes">{t.notes}</div>}
                 </div>
                 <div className="td-card-actions">
                   {isDeleting ? (
@@ -223,6 +226,7 @@ export default function TripDetail({
                       {a.check_out_date && <>Check out: {formatDate(a.check_out_date)}</>}
                     </div>
                   )}
+                  {a.notes && <div className="td-notes">{a.notes}</div>}
                 </div>
                 <div className="td-card-actions">
                   {isDeleting ? (
@@ -440,6 +444,15 @@ export default function TripDetail({
           font-size: 0.75rem;
           color: var(--text-muted);
           font-style: italic;
+        }
+        .td-notes {
+          font-size: 0.8125rem;
+          color: var(--text-secondary);
+          background: var(--cream);
+          border-radius: 6px;
+          padding: 0.375rem 0.625rem;
+          margin-top: 0.125rem;
+          white-space: pre-wrap;
         }
 
         .td-card-actions {

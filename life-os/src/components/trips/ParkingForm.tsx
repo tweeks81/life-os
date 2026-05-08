@@ -19,6 +19,7 @@ export default function ParkingForm({
   const [reference, setReference] = useState('')
   const [startDatetime, setStartDatetime] = useState('')
   const [endDatetime, setEndDatetime] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -33,6 +34,7 @@ export default function ParkingForm({
       reference: reference.trim() || null,
       start_datetime: new Date(startDatetime).toISOString(),
       end_datetime: new Date(endDatetime).toISOString(),
+      notes: notes.trim() || null,
     })
     if (err) { setError(err.message); setSaving(false); return }
     onSaved()
@@ -66,6 +68,10 @@ export default function ParkingForm({
               <label className="label">Return date & time <span className="req">*</span></label>
               <input className="input-field" type="datetime-local" value={endDatetime} onChange={e => setEndDatetime(e.target.value)} />
             </div>
+          </div>
+          <div className="field-group">
+            <label className="label">Notes</label>
+            <textarea className="input-field" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="Terminal location, shuttle info, PIN code…" style={{ resize: 'vertical' }} />
           </div>
         </div>
         <div className="modal-footer">

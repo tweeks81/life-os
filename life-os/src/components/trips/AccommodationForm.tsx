@@ -22,6 +22,7 @@ export default function AccommodationForm({
   const [bookingReference, setBookingReference] = useState('')
   const [checkInDate, setCheckInDate] = useState('')
   const [checkOutDate, setCheckOutDate] = useState('')
+  const [notes, setNotes] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -36,6 +37,7 @@ export default function AccommodationForm({
       booking_reference: bookingReference.trim() || null,
       check_in_date: checkInDate || null,
       check_out_date: checkOutDate || null,
+      notes: notes.trim() || null,
     })
     if (err) { setError(err.message); setSaving(false); return }
     onSaved()
@@ -79,6 +81,10 @@ export default function AccommodationForm({
               <label className="label">Check-out date</label>
               <input className="input-field" type="date" value={checkOutDate} onChange={e => setCheckOutDate(e.target.value)} />
             </div>
+          </div>
+          <div className="field-group">
+            <label className="label">Notes</label>
+            <textarea className="input-field" rows={2} value={notes} onChange={e => setNotes(e.target.value)} placeholder="WiFi details, parking, check-in instructions…" style={{ resize: 'vertical' }} />
           </div>
         </div>
         <div className="modal-footer">
