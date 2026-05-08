@@ -14,12 +14,14 @@ export interface TripFlight {
   depart_airport: string
   depart_terminal: string | null
   depart_datetime: string
+  depart_timezone: string | null
   flight_number: string | null
   booking_reference: string | null
   booked_via: string | null
   arrive_airport: string
   arrive_terminal: string | null
   arrive_datetime: string
+  arrive_timezone: string | null
   created_at: string
 }
 
@@ -88,6 +90,21 @@ export function formatDT(dt: string): string {
     weekday: 'short', day: 'numeric', month: 'short',
     hour: '2-digit', minute: '2-digit',
   })
+}
+
+export function formatDTInZone(dt: string, tz?: string | null): string {
+  const opts: Intl.DateTimeFormatOptions = {
+    weekday: 'short', day: 'numeric', month: 'short',
+    hour: '2-digit', minute: '2-digit',
+  }
+  if (tz) opts.timeZone = tz
+  return new Date(dt).toLocaleString('en-GB', opts)
+}
+
+export function tzShort(dt: string, tz: string): string {
+  return new Intl.DateTimeFormat('en-GB', {
+    timeZone: tz, timeZoneName: 'short',
+  }).formatToParts(new Date(dt)).find(p => p.type === 'timeZoneName')?.value ?? ''
 }
 
 export function formatDate(d: string): string {
