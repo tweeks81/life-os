@@ -234,7 +234,7 @@ export default function CalendarShell({
                 : activeTypes.size === 0
                 ? 'No types'
                 : activeTypes.size === 1
-                ? EVENT_TYPE_LABELS[[...activeTypes][0] as EventType]
+                ? EVENT_TYPE_LABELS[Array.from(activeTypes)[0]]
                 : `${activeTypes.size} of ${allTypes.length} types`}
             </span>
             <span className="cal-filter-chevron">{filterOpen ? '▲' : '▼'}</span>
