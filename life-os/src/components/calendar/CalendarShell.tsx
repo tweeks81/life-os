@@ -194,7 +194,7 @@ export default function CalendarShell({
     setSelectedEvent(null)
   }
 
-  const allTypes: EventType[] = ['birthday', 'anniversary', 'remembrance', 'holiday', 'other']
+  const allTypes: EventType[] = ['birthday', 'anniversary', 'remembrance', 'holiday', 'other', 'trip']
 
   return (
     <div className="cal-shell">
