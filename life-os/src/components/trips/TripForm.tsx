@@ -18,15 +18,20 @@ export default function TripForm({
   const supabase = createClient()
   const [name, setName] = useState(trip?.name ?? '')
   const [description, setDescription] = useState(trip?.description ?? '')
+  const [startDate, setStartDate] = useState(trip?.start_date ?? '')
+  const [endDate, setEndDate] = useState(trip?.end_date ?? '')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const handleSave = async () => {
     if (!name.trim()) { setError('Name is required.'); return }
+    if (startDate && endDate && endDate < startDate) { setError('End date must be on or after start date.'); return }
     setSaving(true)
     const payload = {
       name: name.trim(),
       description: description.trim() || null,
+      start_date: startDate || null,
+      end_date: endDate || null,
       updated_at: new Date().toISOString(),
     }
     if (trip) {
@@ -56,7 +61,20 @@ export default function TripForm({
           </div>
           <div className="field-group">
             <label className="label">Description</label>
-            <textarea className="input-field" rows={3} value={description} onChange={e => setDescription(e.target.value)} placeholder="Purpose, notes…" style={{ resize: 'vertical' }} />
+            <textarea className="input-field" rows={2} value={description} onChange={e => setDescription(e.target.value)} placeholder="Purpose, notes…" style={{ resize: 'vertical' }} />
+          </div>
+          <div className="date-row">
+            <div className="field-group">
+              <label className="label">Start date</label>
+              <input type="date" className="input-field" value={startDate} onChange={e => {
+                setStartDate(e.target.value)
+                if (endDate && e.target.value && endDate < e.target.value) setEndDate(e.target.value)
+              }} />
+            </div>
+            <div className="field-group">
+              <label className="label">End date</label>
+              <input type="date" className="input-field" value={endDate} min={startDate || undefined} onChange={e => setEndDate(e.target.value)} />
+            </div>
           </div>
         </div>
         <div className="modal-footer">
@@ -74,6 +92,7 @@ export default function TripForm({
         .modal-close { width: 30px; height: 30px; border-radius: 7px; border: 1px solid var(--border); background: none; cursor: pointer; color: var(--text-muted); font-size: 0.8125rem; display: flex; align-items: center; justify-content: center; transition: all 0.15s; }
         .modal-close:hover { background: var(--cream-dark); color: var(--deep-brown); }
         .modal-body { padding: 1.25rem; display: flex; flex-direction: column; gap: 1rem; overflow-y: auto; }
+        .date-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
         .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.875rem 1.25rem; border-top: 1px solid var(--border-light); flex-shrink: 0; }
         .form-error { font-size: 0.875rem; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 0.5rem 0.75rem; }
         .req { color: var(--terracotta); }
