@@ -67,6 +67,15 @@ export interface TripAccommodation {
   created_at: string
 }
 
+export interface TripTask {
+  id: string
+  title: string
+  priority: number
+  status: string
+  due_date: string | null
+  created_at: string
+}
+
 export interface TripShare {
   id: string
   trip_id: string
