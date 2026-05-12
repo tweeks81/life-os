@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import {
-  Trip, TripFlight, TripParking, TripTaxi, TripAccommodation, TripShare, LinkedContactForSharing,
+  Trip, TripFlight, TripParking, TripTaxi, TripAccommodation, TripShare, LinkedContactForSharing, TripTask,
   ACCOMMODATION_ICONS, ACCOMMODATION_TYPES,
   formatDTInZone, tzShort, formatDate, flightDuration,
 } from '@/types/trips'
@@ -11,6 +11,7 @@ import ParkingForm from './ParkingForm'
 import TaxiForm from './TaxiForm'
 import AccommodationForm from './AccommodationForm'
 import TripSharePanel from './TripSharePanel'
+import TripTasksSection from './TripTasksSection'
 
 type ItineraryItem =
   | { kind: 'flight'; sortDt: string; data: TripFlight }
@@ -56,6 +57,7 @@ export default function TripDetail({
   accommodations,
   shares,
   linkedContacts,
+  tripTasks,
   userId,
   isOwner,
   ownerName,
@@ -66,6 +68,9 @@ export default function TripDetail({
   onReorderItems,
   onAddShare,
   onRemoveShare,
+  onAddTask,
+  onToggleTask,
+  onDeleteTask,
 }: {
   trip: Trip
   flights: TripFlight[]
@@ -74,6 +79,7 @@ export default function TripDetail({
   accommodations: TripAccommodation[]
   shares: TripShare[]
   linkedContacts: LinkedContactForSharing[]
+  tripTasks: TripTask[]
   userId: string
   isOwner: boolean
   ownerName: string | null
@@ -84,6 +90,9 @@ export default function TripDetail({
   onReorderItems: (updates: { table: string; id: string; sortOrder: number }[]) => void
   onAddShare: (sharedWithUserId: string) => void
   onRemoveShare: (shareId: string) => void
+  onAddTask: (title: string, urgency: number, dueDate: string | null) => Promise<void>
+  onToggleTask: (id: string, status: string) => Promise<void>
+  onDeleteTask: (id: string) => Promise<void>
 }) {
   const [itinerary, setItinerary] = useState<ItineraryItem[]>(() =>
     buildItinerary(flights, parking, taxis, accommodations)
@@ -153,6 +162,15 @@ export default function TripDetail({
       )}
 
       <div className="td-body">
+        {isOwner && (
+          <TripTasksSection
+            tasks={tripTasks}
+            onAddTask={onAddTask}
+            onToggleTask={onToggleTask}
+            onDeleteTask={onDeleteTask}
+          />
+        )}
+
         {itinerary.length === 0 && (
           <div className="td-empty">
             <p className="td-empty-title">No items yet</p>

@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Trip, TripFlight, TripParking, TripTaxi, TripAccommodation, TripShare, LinkedContactForSharing } from '@/types/trips'
+import { Trip, TripFlight, TripParking, TripTaxi, TripAccommodation, TripShare, LinkedContactForSharing, TripTask } from '@/types/trips'
 import TripsList from './TripsList'
 import TripDetail from './TripDetail'
 import TripForm from './TripForm'
@@ -28,6 +28,7 @@ export default function TripsShell({
   const [taxis, setTaxis] = useState<TripTaxi[]>([])
   const [accommodations, setAccommodations] = useState<TripAccommodation[]>([])
   const [shares, setShares] = useState<TripShare[]>([])
+  const [tripTasks, setTripTasks] = useState<TripTask[]>([])
   const [showTripForm, setShowTripForm] = useState(false)
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
 
@@ -68,16 +69,19 @@ export default function TripsShell({
 
   const handleSelectTrip = useCallback(async (trip: Trip) => {
     setSelectedTrip(trip)
-    await Promise.all([loadTripItems(trip.id), loadShares(trip.id)])
-  }, [loadTripItems, loadShares])
+    if (trip.user_id !== userId) setTripTasks([])
+    const promises: Promise<void>[] = [loadTripItems(trip.id), loadShares(trip.id)]
+    if (trip.user_id === userId) promises.push(loadTripTasks(trip.id))
+    await Promise.all(promises)
+  }, [loadTripItems, loadShares, loadTripTasks, userId])
 
   const handleTripSaved = useCallback(async (saved: Trip) => {
     await refreshTrips()
     setShowTripForm(false)
     setEditingTrip(null)
     setSelectedTrip(saved)
-    await Promise.all([loadTripItems(saved.id), loadShares(saved.id)])
-  }, [refreshTrips, loadTripItems, loadShares])
+    await Promise.all([loadTripItems(saved.id), loadShares(saved.id), loadTripTasks(saved.id)])
+  }, [refreshTrips, loadTripItems, loadShares, loadTripTasks])
 
   const handleDeleteTrip = useCallback(async () => {
     if (!selectedTrip) return
@@ -110,6 +114,53 @@ export default function TripsShell({
     await (supabase as any).from('trip_shares').delete().eq('id', shareId)
     if (selectedTrip) await loadShares(selectedTrip.id)
   }, [supabase, selectedTrip, loadShares])
+
+  const loadTripTasks = useCallback(async (tripId: string) => {
+    const { data: proj } = await (supabase as any)
+      .from('projects').select('id').eq('trip_id', tripId).eq('user_id', userId).maybeSingle()
+    if (!proj) { setTripTasks([]); return }
+    const { data } = await (supabase as any)
+      .from('tasks').select('id, title, priority, status, due_date, created_at')
+      .eq('project_id', proj.id).order('created_at', { ascending: true })
+    setTripTasks(data ?? [])
+  }, [supabase, userId])
+
+  const handleAddTask = useCallback(async (title: string, urgency: number, dueDate: string | null) => {
+    if (!selectedTrip) return
+    let projectId: string
+    const { data: existing } = await (supabase as any)
+      .from('projects').select('id').eq('trip_id', selectedTrip.id).eq('user_id', userId).maybeSingle()
+    if (existing) {
+      projectId = existing.id
+    } else {
+      const { data: created } = await (supabase as any)
+        .from('projects')
+        .insert({ name: selectedTrip.name, user_id: userId, trip_id: selectedTrip.id, status: 'active', colour: '#2d5a8e' })
+        .select('id').single()
+      if (!created) return
+      projectId = created.id
+    }
+    await (supabase as any).from('tasks').insert({
+      title, user_id: userId, project_id: projectId,
+      category: 'admin', context: 'anywhere', urgency, effort: 2,
+      due_date: dueDate || null, status: 'open',
+    })
+    await loadTripTasks(selectedTrip.id)
+  }, [supabase, selectedTrip, userId, loadTripTasks])
+
+  const handleToggleTask = useCallback(async (taskId: string, currentStatus: string) => {
+    const newStatus = currentStatus === 'done' ? 'open' : 'done'
+    await (supabase as any).from('tasks').update({
+      status: newStatus,
+      completed_at: newStatus === 'done' ? new Date().toISOString() : null,
+    }).eq('id', taskId)
+    if (selectedTrip) await loadTripTasks(selectedTrip.id)
+  }, [supabase, selectedTrip, loadTripTasks])
+
+  const handleDeleteTask = useCallback(async (taskId: string) => {
+    await (supabase as any).from('tasks').delete().eq('id', taskId)
+    if (selectedTrip) await loadTripTasks(selectedTrip.id)
+  }, [supabase, selectedTrip, loadTripTasks])
 
   const handleReorderItems = useCallback(async (updates: { table: string; id: string; sortOrder: number }[]) => {
     await Promise.all(
@@ -154,6 +205,10 @@ export default function TripsShell({
               onDeleteTrip={handleDeleteTrip}
               onItemAdded={handleItemAdded}
               onDeleteItem={handleDeleteItem}
+              tripTasks={tripTasks}
+              onAddTask={handleAddTask}
+              onToggleTask={handleToggleTask}
+              onDeleteTask={handleDeleteTask}
               onAddShare={handleAddShare}
               onRemoveShare={handleRemoveShare}
               onReorderItems={handleReorderItems}
