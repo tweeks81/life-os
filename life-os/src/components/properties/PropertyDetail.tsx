@@ -1,14 +1,17 @@
 'use client'
 
 import Image from 'next/image'
-import { Property, PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS, formatAddress } from '@/types/properties'
+import { Property, PropertyPurchase, PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS, formatAddress } from '@/types/properties'
 import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
+import PropertyPurchaseSection from './PropertyPurchaseSection'
 
 export default function PropertyDetail({
   property,
   userId,
   shares,
+  purchase,
   onSharesChanged,
+  onSavePurchase,
   onEdit,
   onDelete,
   onClose,
@@ -16,7 +19,9 @@ export default function PropertyDetail({
   property: Property
   userId: string
   shares: ShareRecord[]
+  purchase: PropertyPurchase | null
   onSharesChanged: () => void
+  onSavePurchase: (data: Omit<PropertyPurchase, 'id' | 'created_at' | 'updated_at'>) => Promise<void>
   onEdit: () => void
   onDelete: () => void
   onClose: () => void
@@ -123,6 +128,17 @@ export default function PropertyDetail({
             <p className="notes-text">{property.notes}</p>
           </div>
         )}
+
+        {/* Purchase details */}
+        <div className="detail-section">
+          <PropertyPurchaseSection
+            purchase={purchase}
+            isOwner={isOwner}
+            propertyId={property.id}
+            userId={userId}
+            onSave={onSavePurchase}
+          />
+        </div>
 
         {/* Future modules placeholder */}
         <div className="detail-section modules-placeholder">

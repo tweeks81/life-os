@@ -2,7 +2,7 @@
 
 import { useState, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
-import { Property } from '@/types/properties'
+import { Property, PropertyPurchase } from '@/types/properties'
 import { ShareRecord } from '@/components/tasks/SharePanel'
 import NavBar from '../NavBar'
 import PropertiesList from './PropertiesList'
@@ -24,6 +24,7 @@ export default function PropertiesShell({
   const [properties, setProperties] = useState<Property[]>(initialProperties)
   const [shares, setShares] = useState<Record<string, ShareRecord[]>>(initialShares)
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
+  const [purchase, setPurchase] = useState<PropertyPurchase | null>(null)
   const [showForm, setShowForm] = useState(false)
   const [editingProperty, setEditingProperty] = useState<Property | null>(null)
 
@@ -45,12 +46,29 @@ export default function PropertiesShell({
     setShares(prev => ({ ...prev, [propertyId]: data ?? [] }))
   }, [supabase, userId])
 
+  const loadPurchase = useCallback(async (propertyId: string) => {
+    const { data } = await (supabase as any)
+      .from('property_purchase')
+      .select('*')
+      .eq('property_id', propertyId)
+      .maybeSingle()
+    setPurchase(data ?? null)
+  }, [supabase])
+
+  const handleSavePurchase = useCallback(async (data: Omit<PropertyPurchase, 'id' | 'created_at' | 'updated_at'>) => {
+    await (supabase as any)
+      .from('property_purchase')
+      .upsert(data, { onConflict: 'property_id' })
+    await loadPurchase(data.property_id)
+  }, [supabase, loadPurchase])
+
   const handleSelectProperty = useCallback((property: Property) => {
     setSelectedProperty(property)
+    loadPurchase(property.id)
     if (property.user_id === userId) {
       refreshShares(property.id)
     }
-  }, [userId, refreshShares])
+  }, [userId, refreshShares, loadPurchase])
 
   const handleSaved = useCallback(async (property?: Property) => {
     await refreshProperties()
@@ -65,6 +83,7 @@ export default function PropertiesShell({
   const handleDelete = useCallback(async (propertyId: string) => {
     await supabase.from('properties').delete().eq('id', propertyId)
     setSelectedProperty(null)
+    setPurchase(null)
     await refreshProperties()
   }, [supabase, refreshProperties])
 
@@ -86,10 +105,12 @@ export default function PropertiesShell({
             property={selectedProperty}
             userId={userId}
             shares={shares[selectedProperty.id] ?? []}
+            purchase={purchase}
             onSharesChanged={() => refreshShares(selectedProperty.id)}
+            onSavePurchase={handleSavePurchase}
             onEdit={() => { setEditingProperty(selectedProperty); setShowForm(true) }}
             onDelete={() => handleDelete(selectedProperty.id)}
-            onClose={() => setSelectedProperty(null)}
+            onClose={() => { setSelectedProperty(null); setPurchase(null) }}
           />
         ) : (
           <div className="properties-empty">

@@ -52,6 +52,25 @@ export const PROPERTY_TYPE_ICONS: Record<PropertyType, string> = {
   other: '🏗',
 }
 
+export interface PropertyPurchase {
+  id: string
+  property_id: string
+  user_id: string
+  is_owned: boolean
+  purchase_date: string | null
+  purchase_price: number | null
+  conveyancer_firm: string | null
+  conveyancer_contact: string | null
+  conveyancer_phone: string | null
+  conveyancer_email: string | null
+  estate_agent_firm: string | null
+  estate_agent_contact: string | null
+  estate_agent_phone: string | null
+  estate_agent_email: string | null
+  created_at: string
+  updated_at: string
+}
+
 export function formatAddress(p: Property): string {
   return [p.address_line1, p.address_line2, p.address_town, p.address_city, p.address_postcode]
     .filter(Boolean)
