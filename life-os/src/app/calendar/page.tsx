@@ -85,6 +85,19 @@ export default async function CalendarPage() {
     }
   })
 
+  // Trips with dates for calendar display
+  const { data: tripRows } = await (supabase as any)
+    .from('trips')
+    .select('id, name, start_date, end_date')
+    .not('start_date', 'is', null)
+
+  const calendarTrips = (tripRows ?? []).map((t: any) => ({
+    id: t.id,
+    name: t.name,
+    start_date: t.start_date,
+    end_date: t.end_date,
+  }))
+
   // Shares owned by this user (for managing)
   const { data: shareRows } = await (supabase as any)
     .from('calendar_event_shares')
@@ -105,6 +118,7 @@ export default async function CalendarPage() {
       contacts={[...contactsWithNames, ...linkedAsBirthdays]}
       initialEventShares={eventShares}
       initialSharedWithMeIds={sharedEventIds}
+      trips={calendarTrips}
     />
   )
 }

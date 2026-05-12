@@ -1,4 +1,4 @@
-export type EventType = 'birthday' | 'anniversary' | 'remembrance' | 'holiday' | 'other'
+export type EventType = 'birthday' | 'anniversary' | 'remembrance' | 'holiday' | 'other' | 'trip'
 
 export interface CalendarEvent {
   id: string
@@ -17,6 +17,7 @@ export const EVENT_TYPE_LABELS: Record<EventType, string> = {
   remembrance: 'Remembrance',
   holiday: 'UK Holiday',
   other: 'Other',
+  trip: 'Trip',
 }
 
 export const EVENT_TYPE_COLOURS: Record<EventType, string> = {
@@ -25,6 +26,7 @@ export const EVENT_TYPE_COLOURS: Record<EventType, string> = {
   remembrance: '#6b7280',
   holiday: '#2563eb',
   other: '#7c3aed',
+  trip: '#0891b2',
 }
 
 export const EVENT_TYPE_BG: Record<EventType, string> = {
@@ -33,6 +35,7 @@ export const EVENT_TYPE_BG: Record<EventType, string> = {
   remembrance: '#f9fafb',
   holiday: '#eff6ff',
   other: '#f5f3ff',
+  trip: '#ecfeff',
 }
 
 // ============================================================
@@ -131,6 +134,13 @@ export interface RawCalendarEvent {
   colour: string | null
 }
 
+export interface RawTripForCalendar {
+  id: string
+  name: string
+  start_date: string  // YYYY-MM-DD
+  end_date: string | null  // YYYY-MM-DD
+}
+
 export interface ContactBirthday {
   id: string
   first_name: string
@@ -149,6 +159,7 @@ export function generateEventsForRange(
   dbEvents: RawCalendarEvent[],
   contacts: ContactBirthday[],
   userProfile: UserProfile | null,
+  trips?: RawTripForCalendar[],
 ): CalendarEvent[] {
   const events: CalendarEvent[] = []
 
@@ -239,6 +250,37 @@ export function generateEventsForRange(
           isRecurring: false,
           sourceId: ev.id,
         })
+      }
+    }
+  }
+
+  // 5. Trip events — one entry per day for the duration
+  if (trips) {
+    for (const trip of trips) {
+      if (!trip.start_date) continue
+      const tripStart = new Date(trip.start_date + 'T00:00:00')
+      const tripEnd = trip.end_date ? new Date(trip.end_date + 'T00:00:00') : tripStart
+      const cur = new Date(tripStart)
+      const totalDays = Math.round((tripEnd.getTime() - tripStart.getTime()) / 86400000) + 1
+      let dayIndex = 0
+      while (cur <= tripEnd) {
+        if (cur >= startDate && cur <= endDate) {
+          const isFirst = dayIndex === 0
+          const isLast = dayIndex === totalDays - 1
+          const suffix = totalDays > 1
+            ? (isFirst ? ' — starts' : isLast ? ' — ends' : '')
+            : ''
+          events.push({
+            id: `trip-${trip.id}-${cur.toISOString().split('T')[0]}`,
+            title: trip.name + suffix,
+            type: 'trip',
+            date: new Date(cur),
+            isRecurring: false,
+            sourceId: trip.id,
+          })
+        }
+        cur.setDate(cur.getDate() + 1)
+        dayIndex++
       }
     }
   }

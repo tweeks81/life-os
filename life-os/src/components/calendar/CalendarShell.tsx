@@ -3,7 +3,7 @@
 import { useState, useMemo, useCallback, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import {
-  CalendarEvent, EventType, RawCalendarEvent, ContactBirthday, UserProfile,
+  CalendarEvent, EventType, RawCalendarEvent, ContactBirthday, UserProfile, RawTripForCalendar,
   generateEventsForRange, EVENT_TYPE_LABELS, EVENT_TYPE_COLOURS
 } from '@/lib/calendar'
 import { ShareRecord } from '@/components/tasks/SharePanel'
@@ -29,6 +29,7 @@ export default function CalendarShell({
   contacts,
   initialEventShares,
   initialSharedWithMeIds,
+  trips,
 }: {
   userId: string
   profile: (UserProfile & { avatar_url?: string | null }) | null
@@ -36,6 +37,7 @@ export default function CalendarShell({
   contacts: ContactBirthday[]
   initialEventShares: Record<string, ShareRecord[]>
   initialSharedWithMeIds: string[]
+  trips: RawTripForCalendar[]
 }) {
   const supabase = createClient()
   const today = new Date()
@@ -47,7 +49,7 @@ export default function CalendarShell({
   const [eventShares, setEventShares] = useState<Record<string, ShareRecord[]>>(initialEventShares)
   const [sharedWithMeIds, setSharedWithMeIds] = useState<Set<string>>(new Set(initialSharedWithMeIds))
   const [activeTypes, setActiveTypes] = useState<Set<EventType>>(
-    new Set(['birthday', 'anniversary', 'remembrance', 'holiday', 'other'] as EventType[])
+    new Set(['birthday', 'anniversary', 'remembrance', 'holiday', 'other', 'trip'] as EventType[])
   )
   const [filterOpen, setFilterOpen] = useState(false)
   const filterRef = useRef<HTMLDivElement>(null)
@@ -60,8 +62,8 @@ export default function CalendarShell({
   const rangeEnd = useMemo(() => new Date(currentDate.getFullYear() + 1, 11, 31), [currentDate])
 
   const allEvents = useMemo(() => {
-    return generateEventsForRange(rangeStart, rangeEnd, dbEvents, contacts, profile)
-  }, [rangeStart, rangeEnd, dbEvents, contacts, profile])
+    return generateEventsForRange(rangeStart, rangeEnd, dbEvents, contacts, profile, trips)
+  }, [rangeStart, rangeEnd, dbEvents, contacts, profile, trips])
 
   const filteredEvents = useMemo(() => {
     return allEvents.filter(e => activeTypes.has(e.type))
@@ -75,7 +77,7 @@ export default function CalendarShell({
     end.setFullYear(end.getFullYear() + 1)
     end.setDate(end.getDate() - 1)
 
-    const raw = generateEventsForRange(start, end, dbEvents, contacts, profile)
+    const raw = generateEventsForRange(start, end, dbEvents, contacts, profile, trips)
       .filter(e => activeTypes.has(e.type))
 
     const seen = new Set<string>()
@@ -85,7 +87,7 @@ export default function CalendarShell({
       seen.add(key)
       return true
     })
-  }, [dbEvents, contacts, profile, activeTypes])
+  }, [dbEvents, contacts, profile, activeTypes, trips])
 
   const toggleType = (type: EventType) => {
     setActiveTypes(prev => {

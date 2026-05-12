@@ -2,7 +2,7 @@ import { createClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import NavBar from '@/components/NavBar'
 import DashboardClient from '@/components/DashboardClient'
-import { generateEventsForRange, RawCalendarEvent, ContactBirthday } from '@/lib/calendar'
+import { generateEventsForRange, RawCalendarEvent, ContactBirthday, RawTripForCalendar } from '@/lib/calendar'
 
 function computeServiceStatus(serviceRows: { vehicle_id: string; service_date: string }[]) {
   const latest: Record<string, string> = {}
@@ -102,7 +102,14 @@ export default async function DashboardPage() {
   })
   const allContacts: ContactBirthday[] = [...(contacts ?? []), ...linkedAsBirthdays]
 
-  const calEvents = generateEventsForRange(today, weekEnd, allDbEvents, allContacts, profile)
+  // Trips for calendar display
+  const { data: dashTripRows } = await (supabase as any)
+    .from('trips').select('id, name, start_date, end_date').not('start_date', 'is', null)
+  const dashTrips: RawTripForCalendar[] = (dashTripRows ?? []).map((t: any) => ({
+    id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
+  }))
+
+  const calEvents = generateEventsForRange(today, weekEnd, allDbEvents, allContacts, profile, dashTrips)
 
   const relevantTasks = (tasks ?? []).filter((t: any) => {
     if (!t.due_date) return false
