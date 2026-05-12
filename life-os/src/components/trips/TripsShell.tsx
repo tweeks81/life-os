@@ -125,27 +125,34 @@ export default function TripsShell({
     if (selectedTrip) await loadShares(selectedTrip.id)
   }, [supabase, selectedTrip, loadShares])
 
-  const handleAddTask = useCallback(async (title: string, urgency: number, dueDate: string | null) => {
-    if (!selectedTrip) return
+  const handleAddTask = useCallback(async (title: string, urgency: number, dueDate: string | null): Promise<string | null> => {
+    if (!selectedTrip) return null
     let projectId: string
-    const { data: existing } = await (supabase as any)
+
+    const { data: existing, error: findErr } = await (supabase as any)
       .from('projects').select('id').eq('trip_id', selectedTrip.id).eq('user_id', userId).maybeSingle()
+    if (findErr) return findErr.message
+
     if (existing) {
       projectId = existing.id
     } else {
-      const { data: created } = await (supabase as any)
+      const { data: created, error: projErr } = await (supabase as any)
         .from('projects')
         .insert({ name: selectedTrip.name, user_id: userId, trip_id: selectedTrip.id, status: 'active', colour: '#2d5a8e' })
         .select('id').single()
-      if (!created) return
+      if (projErr || !created) return projErr?.message ?? 'Failed to create project'
       projectId = created.id
     }
-    await (supabase as any).from('tasks').insert({
+
+    const { error: taskErr } = await (supabase as any).from('tasks').insert({
       title, user_id: userId, project_id: projectId,
       category: 'admin', context: 'anywhere', urgency, effort: 2,
       due_date: dueDate || null, status: 'open',
     })
+    if (taskErr) return taskErr.message
+
     await loadTripTasks(selectedTrip.id)
+    return null
   }, [supabase, selectedTrip, userId, loadTripTasks])
 
   const handleToggleTask = useCallback(async (taskId: string, currentStatus: string) => {

@@ -28,7 +28,7 @@ export default function TripTasksSection({
   onDeleteTask,
 }: {
   tasks: TripTask[]
-  onAddTask: (title: string, urgency: number, dueDate: string | null) => Promise<void>
+  onAddTask: (title: string, urgency: number, dueDate: string | null) => Promise<string | null>
   onToggleTask: (id: string, status: string) => Promise<void>
   onDeleteTask: (id: string) => Promise<void>
 }) {
@@ -37,13 +37,20 @@ export default function TripTasksSection({
   const [urgency, setUrgency] = useState(3)
   const [dueDate, setDueDate] = useState('')
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [confirmDelete, setConfirmDelete] = useState<string | null>(null)
 
   const handleAdd = async () => {
     if (!title.trim()) return
     setSaving(true)
-    await onAddTask(title.trim(), urgency, dueDate || null)
-    setTitle(''); setUrgency(3); setDueDate(''); setShowForm(false); setSaving(false)
+    setSaveError(null)
+    const err = await onAddTask(title.trim(), urgency, dueDate || null)
+    setSaving(false)
+    if (err) {
+      setSaveError(err)
+    } else {
+      setTitle(''); setUrgency(3); setDueDate(''); setShowForm(false)
+    }
   }
 
   const open = tasks.filter(t => t.status !== 'done')
@@ -93,11 +100,12 @@ export default function TripTasksSection({
               onChange={e => setDueDate(e.target.value)}
             />
           </div>
+          {saveError && <p className="tts-save-error">⚠ {saveError}</p>}
           <div className="tts-form-actions">
             <button className="tts-save-btn" onClick={handleAdd} disabled={!title.trim() || saving}>
               {saving ? 'Adding…' : 'Add'}
             </button>
-            <button className="tts-cancel-btn" onClick={() => { setShowForm(false); setTitle(''); setUrgency(3); setDueDate('') }}>
+            <button className="tts-cancel-btn" onClick={() => { setShowForm(false); setTitle(''); setUrgency(3); setDueDate(''); setSaveError(null) }}>
               Cancel
             </button>
           </div>
@@ -160,6 +168,7 @@ export default function TripTasksSection({
         .tts-save-btn:not(:disabled):hover { background: var(--deep-brown); }
         .tts-cancel-btn { padding: 0.375rem 0.75rem; border-radius: 6px; border: 1px solid var(--border); background: white; font-size: 0.8125rem; font-weight: 500; color: var(--text-muted); cursor: pointer; font-family: var(--font-body); }
         .tts-cancel-btn:hover { background: var(--cream-dark); }
+        .tts-save-error { font-size: 0.8125rem; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 0.375rem 0.625rem; margin: 0; }
         .tts-task-row { display: flex; align-items: center; gap: 0.625rem; padding: 0.4375rem 0.25rem; border-radius: 6px; transition: background 0.12s; }
         .tts-task-row:hover { background: var(--cream); }
         .tts-task-row:hover .tts-task-del { opacity: 1; }
