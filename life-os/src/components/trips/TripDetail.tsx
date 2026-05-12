@@ -90,7 +90,7 @@ export default function TripDetail({
   onReorderItems: (updates: { table: string; id: string; sortOrder: number }[]) => void
   onAddShare: (sharedWithUserId: string) => void
   onRemoveShare: (shareId: string) => void
-  onAddTask: (title: string, urgency: number, dueDate: string | null) => Promise<void>
+  onAddTask: (title: string, urgency: number, dueDate: string | null) => Promise<string | null>
   onToggleTask: (id: string, status: string) => Promise<void>
   onDeleteTask: (id: string) => Promise<void>
 }) {
