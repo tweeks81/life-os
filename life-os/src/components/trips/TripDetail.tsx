@@ -130,6 +130,13 @@ export default function TripDetail({
           <div>
             <h2 className="td-title">{trip.name}</h2>
             {trip.description && <p className="td-desc">{trip.description}</p>}
+            {(trip.start_date || trip.end_date) && (
+              <p className="td-dates">
+                📅{' '}
+                {trip.start_date ? formatDate(trip.start_date) : '?'}
+                {trip.end_date && trip.end_date !== trip.start_date && <> — {formatDate(trip.end_date)}</>}
+              </p>
+            )}
             {!isOwner && ownerName && <p className="td-shared-by">Shared with you by {ownerName}</p>}
           </div>
         </div>
@@ -331,6 +338,7 @@ export default function TripDetail({
         .td-icon { font-size: 1.25rem; margin-top: 1px; flex-shrink: 0; }
         .td-title { font-size: 1.125rem; font-weight: 700; color: var(--deep-brown); line-height: 1.3; }
         .td-desc { font-size: 0.8125rem; color: var(--text-muted); margin-top: 0.125rem; }
+        .td-dates { font-size: 0.8125rem; color: var(--text-secondary); margin-top: 0.2rem; }
         .td-shared-by { font-size: 0.75rem; color: var(--terracotta); font-weight: 500; margin-top: 0.25rem; }
         .td-header-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
         .td-confirm-label { font-size: 0.8125rem; color: var(--text-secondary); }
