@@ -67,6 +67,16 @@ export default function TripsShell({
     setShares((data as any[]).map((s: any) => ({ ...s, name: names[s.shared_with_user_id] ?? null })))
   }, [supabase, userId])
 
+  const loadTripTasks = useCallback(async (tripId: string) => {
+    const { data: proj } = await (supabase as any)
+      .from('projects').select('id').eq('trip_id', tripId).eq('user_id', userId).maybeSingle()
+    if (!proj) { setTripTasks([]); return }
+    const { data } = await (supabase as any)
+      .from('tasks').select('id, title, priority, status, due_date, created_at')
+      .eq('project_id', proj.id).order('created_at', { ascending: true })
+    setTripTasks(data ?? [])
+  }, [supabase, userId])
+
   const handleSelectTrip = useCallback(async (trip: Trip) => {
     setSelectedTrip(trip)
     if (trip.user_id !== userId) setTripTasks([])
@@ -114,16 +124,6 @@ export default function TripsShell({
     await (supabase as any).from('trip_shares').delete().eq('id', shareId)
     if (selectedTrip) await loadShares(selectedTrip.id)
   }, [supabase, selectedTrip, loadShares])
-
-  const loadTripTasks = useCallback(async (tripId: string) => {
-    const { data: proj } = await (supabase as any)
-      .from('projects').select('id').eq('trip_id', tripId).eq('user_id', userId).maybeSingle()
-    if (!proj) { setTripTasks([]); return }
-    const { data } = await (supabase as any)
-      .from('tasks').select('id, title, priority, status, due_date, created_at')
-      .eq('project_id', proj.id).order('created_at', { ascending: true })
-    setTripTasks(data ?? [])
-  }, [supabase, userId])
 
   const handleAddTask = useCallback(async (title: string, urgency: number, dueDate: string | null) => {
     if (!selectedTrip) return
