@@ -80,6 +80,11 @@ export default function PropertyDetail({
     setMortgages(data ?? [])
   }, [supabase, property.id])
 
+  // Load mortgages on mount and when tab switches to mortgage
+  useEffect(() => {
+    loadMortgages()
+  }, [loadMortgages])
+
   useEffect(() => {
     if (tab === 'mortgage') loadMortgages()
   }, [tab, loadMortgages])
@@ -228,27 +233,41 @@ export default function PropertyDetail({
               />
             </div>
 
-            {/* Future modules placeholder */}
-            <div className="detail-section modules-placeholder">
-              <div className="section-heading">Modules</div>
-              <div className="modules-coming">
-                <div className="module-item coming">
-                  <span className="module-icon">📦</span>
-                  <span className="module-label">Assets</span>
-                  <span className="module-soon">Coming soon</span>
-                </div>
-                <div className="module-item coming">
-                  <span className="module-icon">⚡</span>
-                  <span className="module-label">Utilities</span>
-                  <span className="module-soon">Coming soon</span>
-                </div>
-                <div className="module-item coming">
-                  <span className="module-icon">🛡</span>
-                  <span className="module-label">Policies</span>
-                  <span className="module-soon">Coming soon</span>
+            {/* Mortgage snapshot */}
+            {activeMortgage && (
+              <div className="detail-section">
+                <div className="section-heading">Mortgage</div>
+                <div className="mort-snapshot">
+                  <div className="mort-snap-header">
+                    <span className="mort-snap-lender">{activeMortgage.lender}</span>
+                    {activeMortgage.product_type && (
+                      <span className="mort-snap-product">{MORTGAGE_PRODUCT_LABELS[activeMortgage.product_type]}</span>
+                    )}
+                  </div>
+                  <div className="mort-snap-rows">
+                    {activeMortgage.interest_rate != null && (
+                      <MortSnapRow icon="%" label="Interest rate" value={`${activeMortgage.interest_rate}%`} />
+                    )}
+                    {activeMortgage.monthly_payment != null && (
+                      <MortSnapRow icon="£" label="Monthly payment" value={
+                        new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(activeMortgage.monthly_payment)
+                      } />
+                    )}
+                    {activeMortgage.end_date && (
+                      <MortSnapRow
+                        icon="📅"
+                        label="Renews"
+                        value={fmtDate(activeMortgage.end_date)}
+                        status={isMortgageExpired(activeMortgage.end_date) ? 'expired' : isMortgageExpiringSoon(activeMortgage.end_date) ? 'warning' : 'ok'}
+                      />
+                    )}
+                  </div>
+                  {isMortgageExpiringSoon(activeMortgage.end_date) && !isMortgageExpired(activeMortgage.end_date) && (
+                    <div className="mort-snap-warn">⚠ Renewal due within 3 months</div>
+                  )}
                 </div>
               </div>
-            </div>
+            )}
 
             {/* Sharing */}
             {isOwner && (
@@ -528,34 +547,23 @@ export default function PropertyDetail({
           line-height: 1.6;
           white-space: pre-wrap;
         }
-        .modules-placeholder {}
-        .modules-coming {
-          display: grid;
-          grid-template-columns: repeat(3, 1fr);
-          gap: 0.5rem;
-        }
-        .module-item {
-          display: flex;
-          flex-direction: column;
-          align-items: center;
-          gap: 0.25rem;
-          padding: 0.75rem 0.5rem;
-          background: var(--cream);
-          border-radius: 10px;
-          border: 1px solid var(--border-light);
-        }
-        .module-item.coming { opacity: 0.5; }
-        .module-icon { font-size: 1.25rem; }
-        .module-label {
-          font-size: 0.8rem;
-          font-weight: 600;
-          color: var(--text-primary);
-        }
-        .module-soon {
-          font-size: 0.65rem;
-          color: var(--text-muted);
-          font-style: italic;
-        }
+        /* Mortgage snapshot on info tab */
+        .mort-snapshot { display: flex; flex-direction: column; gap: 0.5rem; }
+        .mort-snap-header { display: flex; flex-direction: column; gap: 0.15rem; }
+        .mort-snap-lender { font-size: 0.9375rem; font-weight: 700; color: var(--deep-brown); }
+        .mort-snap-product { font-size: 0.8rem; color: var(--text-secondary); }
+        .mort-snap-rows { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; }
+        .mort-snap-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.875rem; background: white; border-bottom: 1px solid var(--border-light); }
+        .mort-snap-row:last-child { border-bottom: none; }
+        .mort-snap-row.ok { background: #f0fdf4; }
+        .mort-snap-row.warning { background: #fffbeb; }
+        .mort-snap-row.expired { background: #fef2f2; }
+        .mort-snap-icon { font-size: 0.875rem; width: 20px; text-align: center; flex-shrink: 0; color: var(--text-muted); }
+        .mort-snap-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); width: 110px; flex-shrink: 0; }
+        .mort-snap-value { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); flex: 1; }
+        .mort-snap-row.warning .mort-snap-value { color: #b45309; font-weight: 700; }
+        .mort-snap-row.expired .mort-snap-value { color: #dc2626; font-weight: 700; }
+        .mort-snap-warn { font-size: 0.8rem; font-weight: 600; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; border-radius: 6px; padding: 0.35rem 0.625rem; }
 
         /* Mortgage tab */
         .tab-content { padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: 1rem; }
@@ -674,6 +682,18 @@ function MortgageField({ label, value, highlight }: { label: string; value: stri
     <div className="mort-field">
       <span className="mort-field-label">{label}:</span>
       <span className={`mort-field-value ${highlight ?? ''}`}>{value}</span>
+    </div>
+  )
+}
+
+function MortSnapRow({ icon, label, value, status = 'ok' }: {
+  icon: string; label: string; value: string; status?: 'ok' | 'warning' | 'expired'
+}) {
+  return (
+    <div className={`mort-snap-row ${status}`}>
+      <span className="mort-snap-icon">{icon}</span>
+      <span className="mort-snap-label">{label}</span>
+      <span className="mort-snap-value">{value}</span>
     </div>
   )
 }
