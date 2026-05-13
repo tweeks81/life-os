@@ -179,7 +179,7 @@ export default async function DashboardPage() {
   // Build mortgage warning data — attach property name
   const mortgageWarnings: { propertyId: string; propertyName: string; lender: string; endDate: string; daysUntil: number }[] = []
   if (expiringMortgageRows && expiringMortgageRows.length > 0) {
-    const propIds = [...new Set((expiringMortgageRows as any[]).map((r: any) => r.property_id))]
+    const propIds = Array.from(new Set((expiringMortgageRows as any[]).map((r: any) => r.property_id)))
     const { data: propNames } = await supabase.from('properties').select('id, name').in('id', propIds)
     const propNameMap: Record<string, string> = {}
     for (const p of propNames ?? []) propNameMap[p.id] = p.name
