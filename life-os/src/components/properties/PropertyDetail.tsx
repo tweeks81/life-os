@@ -4,18 +4,23 @@ import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Property, PropertyPurchase, PropertyMortgage, MortgageProductType,
-  PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS, MORTGAGE_PRODUCT_LABELS, formatAddress,
+  Property, PropertyPurchase, PropertyMortgage, PropertyUtility, UtilityType,
+  MortgageProductType,
+  PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS, MORTGAGE_PRODUCT_LABELS,
+  UTILITY_TYPE_LABELS, UTILITY_TYPE_ICONS,
+  formatAddress,
 } from '@/types/properties'
 import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
 import PropertyPurchaseSection from './PropertyPurchaseSection'
 import MortgageForm from './MortgageForm'
+import UtilityForm from './UtilityForm'
 
-type Tab = 'info' | 'mortgage'
+type Tab = 'info' | 'mortgage' | 'utilities'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'info', label: 'Info', icon: '🏠' },
   { id: 'mortgage', label: 'Mortgage', icon: '🏦' },
+  { id: 'utilities', label: 'Utilities', icon: '⚡' },
 ]
 
 function isMortgageExpired(endDate: string | null): boolean {
@@ -65,10 +70,16 @@ export default function PropertyDetail({
   const fullAddress = formatAddress(property)
 
   const [tab, setTab] = useState<Tab>('info')
+
   const [mortgages, setMortgages] = useState<PropertyMortgage[]>([])
   const [showMortgageForm, setShowMortgageForm] = useState(false)
   const [editingMortgage, setEditingMortgage] = useState<PropertyMortgage | null>(null)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletingMortgageId, setDeletingMortgageId] = useState<string | null>(null)
+
+  const [utilities, setUtilities] = useState<PropertyUtility[]>([])
+  const [showUtilityForm, setShowUtilityForm] = useState(false)
+  const [editingUtility, setEditingUtility] = useState<PropertyUtility | null>(null)
+  const [deletingUtilityId, setDeletingUtilityId] = useState<string | null>(null)
 
   const loadMortgages = useCallback(async () => {
     const { data } = await (supabase as any)
@@ -80,19 +91,31 @@ export default function PropertyDetail({
     setMortgages(data ?? [])
   }, [supabase, property.id])
 
-  // Load mortgages on mount and when tab switches to mortgage
+  const loadUtilities = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('property_utilities')
+      .select('*')
+      .eq('property_id', property.id)
+      .order('utility_type', { ascending: true })
+    setUtilities(data ?? [])
+  }, [supabase, property.id])
+
+  // Load everything on mount
   useEffect(() => {
     loadMortgages()
-  }, [loadMortgages])
+    loadUtilities()
+  }, [loadMortgages, loadUtilities])
 
   useEffect(() => {
     if (tab === 'mortgage') loadMortgages()
-  }, [tab, loadMortgages])
+    if (tab === 'utilities') loadUtilities()
+  }, [tab, loadMortgages, loadUtilities])
 
-  // Reset to info tab when a different property is selected
+  // Reset when a different property is selected
   useEffect(() => {
     setTab('info')
     setMortgages([])
+    setUtilities([])
   }, [property.id])
 
   const handleDelete = () => {
@@ -101,10 +124,18 @@ export default function PropertyDetail({
 
   const handleDeleteMortgage = async (id: string) => {
     if (!confirm('Delete this mortgage record?')) return
-    setDeletingId(id)
+    setDeletingMortgageId(id)
     await (supabase as any).from('property_mortgages').delete().eq('id', id)
-    setDeletingId(null)
+    setDeletingMortgageId(null)
     loadMortgages()
+  }
+
+  const handleDeleteUtility = async (id: string) => {
+    if (!confirm('Delete this utility?')) return
+    setDeletingUtilityId(id)
+    await (supabase as any).from('property_utilities').delete().eq('id', id)
+    setDeletingUtilityId(null)
+    loadUtilities()
   }
 
   // Determine "current" mortgage — non-expired with latest end_date, or most recent if all expired
@@ -269,6 +300,22 @@ export default function PropertyDetail({
               </div>
             )}
 
+            {/* Utilities snapshot */}
+            {utilities.length > 0 && (
+              <div className="detail-section">
+                <div className="section-heading">Utilities</div>
+                <div className="util-snapshot">
+                  {utilities.map(u => (
+                    <div key={u.id} className="util-snap-row">
+                      <span className="util-snap-icon">{UTILITY_TYPE_ICONS[u.utility_type]}</span>
+                      <span className="util-snap-label">{UTILITY_TYPE_LABELS[u.utility_type]}</span>
+                      <span className="util-snap-provider">{u.provider}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Sharing */}
             {isOwner && (
               <div className="detail-section">
@@ -308,7 +355,7 @@ export default function PropertyDetail({
                     <MortgageCard
                       mortgage={activeMortgage}
                       isOwner={isOwner}
-                      deleting={deletingId === activeMortgage.id}
+                      deleting={deletingMortgageId === activeMortgage.id}
                       onEdit={() => { setEditingMortgage(activeMortgage); setShowMortgageForm(true) }}
                       onDelete={() => handleDeleteMortgage(activeMortgage.id)}
                     />
@@ -325,7 +372,7 @@ export default function PropertyDetail({
                           key={m.id}
                           mortgage={m}
                           isOwner={isOwner}
-                          deleting={deletingId === m.id}
+                          deleting={deletingMortgageId === m.id}
                           onEdit={() => { setEditingMortgage(m); setShowMortgageForm(true) }}
                           onDelete={() => handleDeleteMortgage(m.id)}
                         />
@@ -334,6 +381,59 @@ export default function PropertyDetail({
                   </div>
                 )}
               </>
+            )}
+          </div>
+        )}
+
+        {/* ── UTILITIES TAB ── */}
+        {tab === 'utilities' && (
+          <div className="tab-content">
+            {isOwner && (
+              <button
+                className="add-record-btn"
+                onClick={() => { setEditingUtility(null); setShowUtilityForm(true) }}
+              >
+                + Add utility
+              </button>
+            )}
+
+            {utilities.length === 0 ? (
+              <div className="empty-tab">No utilities recorded yet.</div>
+            ) : (
+              <div className="util-list">
+                {utilities.map(u => (
+                  <div key={u.id} className="util-card">
+                    <div className="util-card-header">
+                      <div className="util-card-left">
+                        <span className="util-card-icon">{UTILITY_TYPE_ICONS[u.utility_type]}</span>
+                        <div className="util-card-info">
+                          <span className="util-card-type">{UTILITY_TYPE_LABELS[u.utility_type]}</span>
+                          <span className="util-card-provider">{u.provider}</span>
+                        </div>
+                      </div>
+                      {isOwner && (
+                        <div className="util-card-actions">
+                          <button
+                            className="mort-edit-btn"
+                            onClick={() => { setEditingUtility(u); setShowUtilityForm(true) }}
+                            disabled={deletingUtilityId === u.id}
+                          >
+                            Edit
+                          </button>
+                          <button
+                            className="mort-delete-btn"
+                            onClick={() => handleDeleteUtility(u.id)}
+                            disabled={deletingUtilityId === u.id}
+                          >
+                            🗑
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                    {u.notes && <p className="util-card-notes">{u.notes}</p>}
+                  </div>
+                ))}
+              </div>
             )}
           </div>
         )}
@@ -347,6 +447,16 @@ export default function PropertyDetail({
           mortgage={editingMortgage}
           onSaved={() => { setShowMortgageForm(false); setEditingMortgage(null); loadMortgages() }}
           onClose={() => { setShowMortgageForm(false); setEditingMortgage(null) }}
+        />
+      )}
+
+      {showUtilityForm && (
+        <UtilityForm
+          propertyId={property.id}
+          userId={userId}
+          utility={editingUtility}
+          onSaved={() => { setShowUtilityForm(false); setEditingUtility(null); loadUtilities() }}
+          onClose={() => { setShowUtilityForm(false); setEditingUtility(null) }}
         />
       )}
 
@@ -581,6 +691,26 @@ export default function PropertyDetail({
           margin-bottom: 0.5rem;
         }
         .mort-history-list { display: flex; flex-direction: column; gap: 0.625rem; }
+
+        /* Utilities snapshot on info tab */
+        .util-snapshot { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; }
+        .util-snap-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.875rem; background: white; border-bottom: 1px solid var(--border-light); }
+        .util-snap-row:last-child { border-bottom: none; }
+        .util-snap-icon { font-size: 1rem; width: 22px; text-align: center; flex-shrink: 0; }
+        .util-snap-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); width: 80px; flex-shrink: 0; }
+        .util-snap-provider { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); flex: 1; }
+
+        /* Utilities tab */
+        .util-list { display: flex; flex-direction: column; gap: 0.625rem; }
+        .util-card { border: 1px solid var(--border-light); border-radius: 10px; padding: 0.875rem; background: var(--cream); display: flex; flex-direction: column; gap: 0.5rem; }
+        .util-card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+        .util-card-left { display: flex; align-items: center; gap: 0.625rem; flex: 1; min-width: 0; }
+        .util-card-icon { font-size: 1.5rem; flex-shrink: 0; width: 36px; height: 36px; background: white; border: 1px solid var(--border-light); border-radius: 8px; display: flex; align-items: center; justify-content: center; }
+        .util-card-info { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+        .util-card-type { font-size: 0.7rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+        .util-card-provider { font-size: 0.9375rem; font-weight: 600; color: var(--deep-brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .util-card-actions { display: flex; gap: 0.375rem; align-items: center; flex-shrink: 0; }
+        .util-card-notes { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; border-top: 1px solid var(--border-light); padding-top: 0.5rem; white-space: pre-wrap; }
       `}</style>
     </div>
   )

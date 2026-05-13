@@ -107,6 +107,33 @@ export interface PropertyMortgage {
   updated_at: string
 }
 
+export type UtilityType = 'electricity' | 'gas' | 'water' | 'internet'
+
+export const UTILITY_TYPE_LABELS: Record<UtilityType, string> = {
+  electricity: 'Electricity',
+  gas: 'Gas',
+  water: 'Water',
+  internet: 'Internet',
+}
+
+export const UTILITY_TYPE_ICONS: Record<UtilityType, string> = {
+  electricity: '⚡',
+  gas: '🔥',
+  water: '💧',
+  internet: '📶',
+}
+
+export interface PropertyUtility {
+  id: string
+  property_id: string
+  user_id: string
+  utility_type: UtilityType
+  provider: string
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export function formatAddress(p: Property): string {
   return [p.address_line1, p.address_line2, p.address_town, p.address_city, p.address_postcode]
     .filter(Boolean)
