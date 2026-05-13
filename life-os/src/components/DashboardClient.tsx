@@ -74,6 +74,7 @@ export default function DashboardClient({
   totalActiveTasks,
   totalProjects,
   vehicleWarnings,
+  mortgageWarnings,
   nextTrip,
 }: {
   profile: any
@@ -84,6 +85,7 @@ export default function DashboardClient({
   totalActiveTasks: number
   totalProjects: number
   vehicleWarnings: { id: string; name: string; reg_number: string | null; criticalIssues: string[]; warningIssues: string[] }[]
+  mortgageWarnings: { propertyId: string; propertyName: string; lender: string; endDate: string; daysUntil: number }[]
   nextTrip: { name: string; daysUntil: number; destination: string | null } | null
 }) {
   const now = new Date()
@@ -166,6 +168,32 @@ export default function DashboardClient({
                   </span>
                 </div>
               ))}
+            </div>
+          </div>
+        )}
+
+        {mortgageWarnings.length > 0 && (
+          <div className="mortgage-alert">
+            <div className="mortgage-alert-header">
+              <span className="mortgage-alert-icon">🏦</span>
+              <strong>Mortgage renewal{mortgageWarnings.length > 1 ? 's' : ''} coming up</strong>
+              <a href="/properties" className="mortgage-alert-link">View properties →</a>
+            </div>
+            <div className="mortgage-alert-list">
+              {mortgageWarnings.map(m => {
+                const exp = new Date(m.endDate + 'T00:00:00')
+                const expLabel = exp.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                const urgent = m.daysUntil <= 30
+                return (
+                  <div key={`${m.propertyId}-${m.endDate}`} className="mortgage-alert-row">
+                    <span className="mortgage-alert-name">{m.propertyName}</span>
+                    <span className="mortgage-alert-detail">
+                      {m.lender} — renews {expLabel}
+                      <span className={urgent ? 'mort-days-urgent' : 'mort-days-soon'}> ({m.daysUntil}d)</span>
+                    </span>
+                  </div>
+                )
+              })}
             </div>
           </div>
         )}
@@ -302,6 +330,19 @@ export default function DashboardClient({
         .vehicle-alert-issues { display: flex; flex-wrap: wrap; gap: 0.35rem; align-items: center; }
         .issue-critical { font-size: 0.8rem; font-weight: 600; color: #991b1b; background: #fef2f2; border: 1px solid #fecaca; padding: 0.05rem 0.4rem; border-radius: 4px; }
         .issue-warning { font-size: 0.8rem; font-weight: 600; color: #92400e; background: #fffbeb; border: 1px solid #fde68a; padding: 0.05rem 0.4rem; border-radius: 4px; }
+        .mortgage-alert { background: #fffbeb; border: 1.5px solid #fde68a; border-radius: 12px; padding: 0.875rem 1.25rem; margin-bottom: 1.5rem; animation: fadeUp 0.4s ease; display: flex; flex-direction: column; gap: 0.625rem; }
+        .mortgage-alert-header { display: flex; align-items: center; gap: 0.5rem; }
+        .mortgage-alert-icon { font-size: 1rem; flex-shrink: 0; }
+        .mortgage-alert-header strong { font-size: 0.9rem; font-weight: 700; color: #78350f; flex: 1; }
+        .mortgage-alert-link { font-size: 0.8125rem; font-weight: 600; color: #b45309; text-decoration: none; padding: 0.25rem 0.625rem; border: 1.5px solid #fcd34d; border-radius: 6px; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+        .mortgage-alert-link:hover { background: #b45309; color: white; border-color: #b45309; }
+        .mortgage-alert-list { display: flex; flex-direction: column; gap: 0; }
+        .mortgage-alert-row { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; padding: 0.375rem 0; border-top: 1px solid #fde68a; flex-wrap: wrap; }
+        .mortgage-alert-row:first-child { border-top: none; }
+        .mortgage-alert-name { font-weight: 700; color: #78350f; white-space: nowrap; }
+        .mortgage-alert-detail { font-size: 0.8375rem; color: #92400e; }
+        .mort-days-soon { font-weight: 700; color: #b45309; }
+        .mort-days-urgent { font-weight: 700; color: #dc2626; }
         .next-trip-card { display: flex; align-items: center; gap: 1rem; background: linear-gradient(135deg, #1a3a5c 0%, #2d5a8e 100%); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; text-decoration: none; color: inherit; transition: all 0.2s; box-shadow: 0 2px 12px rgba(26,58,92,0.18); }
         .next-trip-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,58,92,0.28); }
         .next-trip-plane { font-size: 1.75rem; flex-shrink: 0; }

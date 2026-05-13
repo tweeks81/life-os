@@ -71,6 +71,42 @@ export interface PropertyPurchase {
   updated_at: string
 }
 
+export type MortgageProductType =
+  | 'fixed_2yr'
+  | 'fixed_5yr'
+  | 'fixed_10yr'
+  | 'tracker'
+  | 'variable'
+  | 'discount'
+  | 'svr'
+  | 'other'
+
+export const MORTGAGE_PRODUCT_LABELS: Record<MortgageProductType, string> = {
+  fixed_2yr: 'Fixed (2 year)',
+  fixed_5yr: 'Fixed (5 year)',
+  fixed_10yr: 'Fixed (10 year)',
+  tracker: 'Tracker',
+  variable: 'Variable rate',
+  discount: 'Discount',
+  svr: 'Standard Variable Rate',
+  other: 'Other',
+}
+
+export interface PropertyMortgage {
+  id: string
+  property_id: string
+  user_id: string
+  lender: string
+  product_type: MortgageProductType | null
+  interest_rate: number | null
+  monthly_payment: number | null
+  start_date: string | null
+  end_date: string | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export function formatAddress(p: Property): string {
   return [p.address_line1, p.address_line2, p.address_town, p.address_city, p.address_postcode]
     .filter(Boolean)

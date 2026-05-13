@@ -36,6 +36,8 @@ export default async function DashboardPage() {
   const todayStr = today.toISOString().split('T')[0]
   const soonDate = new Date(today); soonDate.setDate(soonDate.getDate() + 30)
   const soonStr = soonDate.toISOString().split('T')[0]
+  const ninetyDaysDate = new Date(today); ninetyDaysDate.setDate(ninetyDaysDate.getDate() + 90)
+  const ninetyDaysStr = ninetyDaysDate.toISOString().split('T')[0]
 
   const [
     { data: profile },
@@ -55,6 +57,7 @@ export default async function DashboardPage() {
     { data: warnInsurance },
     { data: warnMot },
     { data: serviceRows },
+    { data: expiringMortgageRows },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     (supabase as any).from('trip_flights').select('trip_id, depart_datetime, arrive_airport').gte('depart_datetime', new Date().toISOString()).order('depart_datetime', { ascending: true }).limit(1).maybeSingle(),
@@ -78,6 +81,7 @@ export default async function DashboardPage() {
     (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', todayStr).lte('end_date', soonStr),
     (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', todayStr).lte('expiry_date', soonStr),
     (supabase as any).from('vehicle_services').select('vehicle_id, service_date').order('service_date', { ascending: false }),
+    (supabase as any).from('property_mortgages').select('id, property_id, lender, end_date').gte('end_date', todayStr).lte('end_date', ninetyDaysStr).order('end_date', { ascending: true }),
   ])
 
   const linkedIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
@@ -172,6 +176,26 @@ export default async function DashboardPage() {
     }
   }
 
+  // Build mortgage warning data — attach property name
+  const mortgageWarnings: { propertyId: string; propertyName: string; lender: string; endDate: string; daysUntil: number }[] = []
+  if (expiringMortgageRows && expiringMortgageRows.length > 0) {
+    const propIds = [...new Set((expiringMortgageRows as any[]).map((r: any) => r.property_id))]
+    const { data: propNames } = await supabase.from('properties').select('id, name').in('id', propIds)
+    const propNameMap: Record<string, string> = {}
+    for (const p of propNames ?? []) propNameMap[p.id] = p.name
+    for (const r of expiringMortgageRows as any[]) {
+      const exp = new Date(r.end_date + 'T00:00:00')
+      const daysUntil = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      mortgageWarnings.push({
+        propertyId: r.property_id,
+        propertyName: propNameMap[r.property_id] ?? 'Property',
+        lender: r.lender,
+        endDate: r.end_date,
+        daysUntil,
+      })
+    }
+  }
+
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
   return (
@@ -191,6 +215,7 @@ export default async function DashboardPage() {
       totalActiveTasks={(tasks ?? []).length}
       totalProjects={(projects ?? []).length}
       vehicleWarnings={vehicleWarnings}
+      mortgageWarnings={mortgageWarnings}
     />
   )
 }
