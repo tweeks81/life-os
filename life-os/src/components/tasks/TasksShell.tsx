@@ -51,7 +51,7 @@ export default function TasksShell({
     // Fetch own + shared tasks (RLS handles this automatically now)
     const { data } = await supabase
       .from('tasks')
-      .select('*, project:projects(id, name, colour)')
+      .select('*, project:projects(id, name, colour, trip_id)')
       .order('priority', { ascending: true })
       .order('due_date', { ascending: true, nullsFirst: false })
       .order('created_at', { ascending: true })
@@ -107,7 +107,7 @@ export default function TasksShell({
     await refreshTasks()
     const { data } = await supabase
       .from('tasks')
-      .select('*, project:projects(id, name, colour)')
+      .select('*, project:projects(id, name, colour, trip_id)')
       .eq('id', task.id)
       .single()
     if (data) {

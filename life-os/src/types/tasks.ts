@@ -16,6 +16,7 @@ export interface Project {
   description: string | null
   status: ProjectStatus
   colour: string | null
+  trip_id: string | null
   target_date: string | null
   completed_at: string | null
   created_at: string
