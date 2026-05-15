@@ -7,17 +7,6 @@ type FilterStatus = 'active' | 'completed' | 'all'
 type SortMode = 'priority' | 'due_date'
 type SourceKey = 'individual' | 'project' | 'trip'
 
-const SOURCE_LABELS: Record<SourceKey, string> = {
-  individual: 'Individual',
-  project: 'Projects',
-  trip: 'Trips',
-}
-const SOURCE_ICONS: Record<SourceKey, string> = {
-  individual: '✦',
-  project: '◆',
-  trip: '✈',
-}
-
 export default function TasksList({
   tasks,
   projects,
@@ -54,21 +43,6 @@ export default function TasksList({
   onNewTask: () => void
 }) {
   const [sort, setSort] = useState<SortMode>('priority')
-  const [activeSources, setActiveSources] = useState<Set<SourceKey>>(new Set<SourceKey>(['individual', 'project', 'trip']))
-
-  const toggleSource = (key: SourceKey) => {
-    setActiveSources(prev => {
-      const next = new Set(prev)
-      if (next.has(key)) {
-        // Don't allow deselecting the last one
-        if (next.size === 1) return prev
-        next.delete(key)
-      } else {
-        next.add(key)
-      }
-      return next
-    })
-  }
 
   const getTaskSource = (task: Task): SourceKey => {
     if (!task.project_id || !task.project) return 'individual'
@@ -96,11 +70,6 @@ export default function TasksList({
     // Category filter
     if (filterCategory) list = list.filter(t => t.category === filterCategory)
 
-    // Source filter (only when not filtered to a specific project already)
-    if (!selectedProjectId) {
-      list = list.filter(t => activeSources.has(getTaskSource(t)))
-    }
-
     // Sort
     if (sort === 'priority') {
       list.sort((a, b) => {
@@ -121,7 +90,7 @@ export default function TasksList({
     }
 
     return list
-  }, [tasks, selectedProjectId, filterStatus, filterContext, filterPriority, filterCategory, activeSources, sort])
+  }, [tasks, selectedProjectId, filterStatus, filterContext, filterPriority, filterCategory, sort])
 
   const hasFilters = filterContext || filterPriority || filterCategory
 
@@ -186,22 +155,6 @@ export default function TasksList({
 
         {/* Row 2: source toggles + existing filters */}
         <div className="filter-row">
-          {/* Source toggles — hidden when a specific project is selected */}
-          {!selectedProjectId && (
-            <div className="source-toggles">
-              {(['individual', 'project', 'trip'] as SourceKey[]).map(key => (
-                <button
-                  key={key}
-                  className={`source-toggle ${activeSources.has(key) ? 'active' : ''}`}
-                  onClick={() => toggleSource(key)}
-                >
-                  <span>{SOURCE_ICONS[key]}</span>
-                  {SOURCE_LABELS[key]}
-                </button>
-              ))}
-            </div>
-          )}
-
           <div className="filter-selects">
             <select className="filter-select" value={filterCategory} onChange={e => onFilterCategory(e.target.value)}>
               <option value="">All categories</option>
@@ -287,12 +240,6 @@ export default function TasksList({
         .sort-btn { padding: 0.28rem 0.65rem; border: 1px solid var(--border); border-radius: 6px; background: white; font-size: 0.8rem; font-weight: 500; font-family: var(--font-body); color: var(--text-secondary); cursor: pointer; transition: all 0.15s; }
         .sort-btn.active { background: var(--deep-brown); color: var(--cream); border-color: var(--deep-brown); }
         .sort-btn:not(.active):hover { border-color: var(--warm-brown); color: var(--deep-brown); }
-
-        /* Source toggles */
-        .source-toggles { display: flex; gap: 0.375rem; flex-shrink: 0; }
-        .source-toggle { display: flex; align-items: center; gap: 0.3rem; padding: 0.28rem 0.65rem; border: 1.5px solid var(--border); border-radius: 100px; background: white; font-size: 0.78rem; font-weight: 500; font-family: var(--font-body); color: var(--text-muted); cursor: pointer; transition: all 0.15s; }
-        .source-toggle.active { background: var(--cream); border-color: var(--warm-brown); color: var(--deep-brown); font-weight: 600; }
-        .source-toggle:hover { border-color: var(--warm-brown); }
 
         /* Existing filter selects */
         .filter-selects { display: flex; align-items: center; gap: 0.4rem; margin-left: auto; flex-wrap: wrap; }
