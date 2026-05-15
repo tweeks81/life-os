@@ -54,7 +54,7 @@ export default function TasksList({
   onNewTask: () => void
 }) {
   const [sort, setSort] = useState<SortMode>('priority')
-  const [activeSources, setActiveSources] = useState<Set<SourceKey>>(new Set(['individual', 'project', 'trip']))
+  const [activeSources, setActiveSources] = useState<Set<SourceKey>>(new Set<SourceKey>(['individual', 'project', 'trip']))
 
   const toggleSource = (key: SourceKey) => {
     setActiveSources(prev => {
