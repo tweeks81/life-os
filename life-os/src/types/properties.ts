@@ -134,6 +134,23 @@ export interface PropertyUtility {
   updated_at: string
 }
 
+export const COUNCIL_TAX_BANDS = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H'] as const
+export type CouncilTaxBand = typeof COUNCIL_TAX_BANDS[number]
+
+export interface PropertyCouncilTax {
+  id: string
+  property_id: string
+  user_id: string
+  council_name: string
+  band: CouncilTaxBand
+  period_start: string | null
+  period_end: string | null
+  annual_charge: number | null
+  notes: string | null
+  created_at: string
+  updated_at: string
+}
+
 export function formatAddress(p: Property): string {
   return [p.address_line1, p.address_line2, p.address_town, p.address_city, p.address_postcode]
     .filter(Boolean)

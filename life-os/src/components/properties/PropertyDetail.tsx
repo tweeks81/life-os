@@ -4,8 +4,8 @@ import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import {
-  Property, PropertyPurchase, PropertyMortgage, PropertyUtility, UtilityType,
-  MortgageProductType,
+  Property, PropertyPurchase, PropertyMortgage, PropertyUtility, PropertyCouncilTax,
+  UtilityType, MortgageProductType,
   PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS, MORTGAGE_PRODUCT_LABELS,
   UTILITY_TYPE_LABELS, UTILITY_TYPE_ICONS,
   formatAddress,
@@ -14,13 +14,15 @@ import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
 import PropertyPurchaseSection from './PropertyPurchaseSection'
 import MortgageForm from './MortgageForm'
 import UtilityForm from './UtilityForm'
+import CouncilTaxForm from './CouncilTaxForm'
 
-type Tab = 'info' | 'mortgage' | 'utilities'
+type Tab = 'info' | 'mortgage' | 'utilities' | 'council-tax'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'info', label: 'Info', icon: '🏠' },
   { id: 'mortgage', label: 'Mortgage', icon: '🏦' },
   { id: 'utilities', label: 'Utilities', icon: '⚡' },
+  { id: 'council-tax', label: 'Council Tax', icon: '🏛' },
 ]
 
 function isMortgageExpired(endDate: string | null): boolean {
@@ -81,6 +83,11 @@ export default function PropertyDetail({
   const [editingUtility, setEditingUtility] = useState<PropertyUtility | null>(null)
   const [deletingUtilityId, setDeletingUtilityId] = useState<string | null>(null)
 
+  const [councilTaxRecords, setCouncilTaxRecords] = useState<PropertyCouncilTax[]>([])
+  const [showCouncilTaxForm, setShowCouncilTaxForm] = useState(false)
+  const [editingCouncilTax, setEditingCouncilTax] = useState<PropertyCouncilTax | null>(null)
+  const [deletingCouncilTaxId, setDeletingCouncilTaxId] = useState<string | null>(null)
+
   const loadMortgages = useCallback(async () => {
     const { data } = await (supabase as any)
       .from('property_mortgages')
@@ -100,22 +107,34 @@ export default function PropertyDetail({
     setUtilities(data ?? [])
   }, [supabase, property.id])
 
+  const loadCouncilTax = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('property_council_tax')
+      .select('*')
+      .eq('property_id', property.id)
+      .order('period_start', { ascending: false, nullsFirst: true })
+    setCouncilTaxRecords(data ?? [])
+  }, [supabase, property.id])
+
   // Load everything on mount
   useEffect(() => {
     loadMortgages()
     loadUtilities()
-  }, [loadMortgages, loadUtilities])
+    loadCouncilTax()
+  }, [loadMortgages, loadUtilities, loadCouncilTax])
 
   useEffect(() => {
     if (tab === 'mortgage') loadMortgages()
     if (tab === 'utilities') loadUtilities()
-  }, [tab, loadMortgages, loadUtilities])
+    if (tab === 'council-tax') loadCouncilTax()
+  }, [tab, loadMortgages, loadUtilities, loadCouncilTax])
 
   // Reset when a different property is selected
   useEffect(() => {
     setTab('info')
     setMortgages([])
     setUtilities([])
+    setCouncilTaxRecords([])
   }, [property.id])
 
   const handleDelete = () => {
@@ -138,9 +157,24 @@ export default function PropertyDetail({
     loadUtilities()
   }
 
+  const handleDeleteCouncilTax = async (id: string) => {
+    if (!confirm('Delete this council tax record?')) return
+    setDeletingCouncilTaxId(id)
+    await (supabase as any).from('property_council_tax').delete().eq('id', id)
+    setDeletingCouncilTaxId(null)
+    loadCouncilTax()
+  }
+
   // Determine "current" mortgage — non-expired with latest end_date, or most recent if all expired
   const activeMortgage = mortgages.find(m => !isMortgageExpired(m.end_date)) ?? mortgages[0] ?? null
   const historyMortgages = mortgages.filter(m => m !== activeMortgage)
+
+  // Current council tax = most recent non-expired (period_end >= today or no period_end)
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const activeCouncilTax = councilTaxRecords.find(r =>
+    !r.period_end || new Date(r.period_end + 'T00:00:00') >= today
+  ) ?? councilTaxRecords[0] ?? null
+  const historyCouncilTax = councilTaxRecords.filter(r => r !== activeCouncilTax)
 
   return (
     <div className="prop-detail">
@@ -316,6 +350,36 @@ export default function PropertyDetail({
               </div>
             )}
 
+            {/* Council tax snapshot */}
+            {activeCouncilTax && (
+              <div className="detail-section">
+                <div className="section-heading">Council Tax</div>
+                <div className="ct-snapshot">
+                  <div className="ct-snap-row">
+                    <span className="ct-snap-icon">🏛</span>
+                    <span className="ct-snap-label">Council</span>
+                    <span className="ct-snap-value">{activeCouncilTax.council_name}</span>
+                  </div>
+                  <div className="ct-snap-row">
+                    <span className="ct-snap-icon">🔤</span>
+                    <span className="ct-snap-label">Band</span>
+                    <span className="ct-snap-value">
+                      <span className="ct-band-badge">{activeCouncilTax.band}</span>
+                    </span>
+                  </div>
+                  {activeCouncilTax.annual_charge != null && (
+                    <div className="ct-snap-row">
+                      <span className="ct-snap-icon">£</span>
+                      <span className="ct-snap-label">Annual cost</span>
+                      <span className="ct-snap-value">
+                        {new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(activeCouncilTax.annual_charge)}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Sharing */}
             {isOwner && (
               <div className="detail-section">
@@ -437,6 +501,56 @@ export default function PropertyDetail({
             )}
           </div>
         )}
+
+        {/* ── COUNCIL TAX TAB ── */}
+        {tab === 'council-tax' && (
+          <div className="tab-content">
+            {isOwner && (
+              <button
+                className="add-record-btn"
+                onClick={() => { setEditingCouncilTax(null); setShowCouncilTaxForm(true) }}
+              >
+                + Add council tax
+              </button>
+            )}
+
+            {councilTaxRecords.length === 0 ? (
+              <div className="empty-tab">No council tax records yet.</div>
+            ) : (
+              <>
+                {activeCouncilTax && (
+                  <div>
+                    <div className="mort-group-label">Current</div>
+                    <CouncilTaxCard
+                      record={activeCouncilTax}
+                      isOwner={isOwner}
+                      deleting={deletingCouncilTaxId === activeCouncilTax.id}
+                      onEdit={() => { setEditingCouncilTax(activeCouncilTax); setShowCouncilTaxForm(true) }}
+                      onDelete={() => handleDeleteCouncilTax(activeCouncilTax.id)}
+                    />
+                  </div>
+                )}
+                {historyCouncilTax.length > 0 && (
+                  <div>
+                    <div className="mort-group-label">History</div>
+                    <div className="mort-history-list">
+                      {historyCouncilTax.map(r => (
+                        <CouncilTaxCard
+                          key={r.id}
+                          record={r}
+                          isOwner={isOwner}
+                          deleting={deletingCouncilTaxId === r.id}
+                          onEdit={() => { setEditingCouncilTax(r); setShowCouncilTaxForm(true) }}
+                          onDelete={() => handleDeleteCouncilTax(r.id)}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Mortgage form modal */}
@@ -457,6 +571,16 @@ export default function PropertyDetail({
           utility={editingUtility}
           onSaved={() => { setShowUtilityForm(false); setEditingUtility(null); loadUtilities() }}
           onClose={() => { setShowUtilityForm(false); setEditingUtility(null) }}
+        />
+      )}
+
+      {showCouncilTaxForm && (
+        <CouncilTaxForm
+          propertyId={property.id}
+          userId={userId}
+          record={editingCouncilTax}
+          onSaved={() => { setShowCouncilTaxForm(false); setEditingCouncilTax(null); loadCouncilTax() }}
+          onClose={() => { setShowCouncilTaxForm(false); setEditingCouncilTax(null) }}
         />
       )}
 
@@ -700,6 +824,26 @@ export default function PropertyDetail({
         .util-snap-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); width: 80px; flex-shrink: 0; }
         .util-snap-provider { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); flex: 1; }
 
+        /* Council tax snapshot on info tab */
+        .ct-snapshot { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; }
+        .ct-snap-row { display: flex; align-items: center; gap: 0.75rem; padding: 0.5rem 0.875rem; background: white; border-bottom: 1px solid var(--border-light); }
+        .ct-snap-row:last-child { border-bottom: none; }
+        .ct-snap-icon { font-size: 0.875rem; width: 22px; text-align: center; flex-shrink: 0; color: var(--text-muted); }
+        .ct-snap-label { font-size: 0.72rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); width: 80px; flex-shrink: 0; }
+        .ct-snap-value { font-size: 0.875rem; font-weight: 500; color: var(--text-primary); flex: 1; }
+        .ct-band-badge { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; background: var(--deep-brown); color: var(--cream); font-weight: 700; font-size: 0.875rem; border-radius: 6px; }
+
+        /* Council tax tab cards */
+        .ct-card { border: 1px solid var(--border-light); border-radius: 10px; padding: 0.875rem; background: var(--cream); display: flex; flex-direction: column; gap: 0.5rem; }
+        .ct-card.ct-expired { border-color: #d1d5db; background: #f9fafb; opacity: 0.8; }
+        .ct-card-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.5rem; }
+        .ct-card-main { display: flex; flex-direction: column; gap: 0.15rem; }
+        .ct-card-council { font-size: 1rem; font-weight: 700; color: var(--deep-brown); }
+        .ct-card-band { display: inline-flex; align-items: center; gap: 0.375rem; font-size: 0.8rem; color: var(--text-secondary); }
+        .ct-card-band-badge { display: inline-flex; align-items: center; justify-content: center; width: 22px; height: 22px; background: var(--deep-brown); color: var(--cream); font-weight: 700; font-size: 0.75rem; border-radius: 5px; }
+        .ct-card-actions { display: flex; gap: 0.375rem; align-items: center; flex-shrink: 0; }
+        .ct-card-notes { font-size: 0.8rem; color: var(--text-muted); line-height: 1.5; font-style: italic; border-top: 1px solid var(--border-light); padding-top: 0.375rem; }
+
         /* Utilities tab */
         .util-list { display: flex; flex-direction: column; gap: 0.625rem; }
         .util-card { border: 1px solid var(--border-light); border-radius: 10px; padding: 0.875rem; background: var(--cream); display: flex; flex-direction: column; gap: 0.5rem; }
@@ -824,6 +968,67 @@ function MortSnapRow({ icon, label, value, status = 'ok' }: {
       <span className="mort-snap-icon">{icon}</span>
       <span className="mort-snap-label">{label}</span>
       <span className="mort-snap-value">{value}</span>
+    </div>
+  )
+}
+
+function CouncilTaxCard({
+  record, isOwner, deleting, onEdit, onDelete,
+}: {
+  record: PropertyCouncilTax
+  isOwner: boolean
+  deleting: boolean
+  onEdit: () => void
+  onDelete: () => void
+}) {
+  const todayMs = new Date().setHours(0, 0, 0, 0)
+  const isExpired = record.period_end
+    ? new Date(record.period_end + 'T00:00:00').getTime() < todayMs
+    : false
+
+  const fmt = (d: string) => new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+  const fmtMoney = (v: number) =>
+    new Intl.NumberFormat('en-GB', { style: 'currency', currency: 'GBP', minimumFractionDigits: 2 }).format(v)
+
+  return (
+    <div className={`ct-card${isExpired ? ' ct-expired' : ''}`}>
+      <div className="ct-card-header">
+        <div className="ct-card-main">
+          <span className="ct-card-council">{record.council_name}</span>
+          <span className="ct-card-band">
+            Band <span className="ct-card-band-badge">{record.band}</span>
+          </span>
+        </div>
+        {isOwner && (
+          <div className="ct-card-actions">
+            <button className="mort-edit-btn" onClick={onEdit} disabled={deleting}>Edit</button>
+            <button className="mort-delete-btn" onClick={onDelete} disabled={deleting}>🗑</button>
+          </div>
+        )}
+      </div>
+
+      <div className="mort-fields">
+        {record.annual_charge != null && (
+          <div className="mort-field">
+            <span className="mort-field-label">Annual charge:</span>
+            <span className="mort-field-value">{fmtMoney(record.annual_charge)}</span>
+          </div>
+        )}
+        {record.period_start && (
+          <div className="mort-field">
+            <span className="mort-field-label">From:</span>
+            <span className="mort-field-value">{fmt(record.period_start)}</span>
+          </div>
+        )}
+        {record.period_end && (
+          <div className="mort-field">
+            <span className="mort-field-label">To:</span>
+            <span className={`mort-field-value${isExpired ? ' expired' : ''}`}>{fmt(record.period_end)}</span>
+          </div>
+        )}
+      </div>
+
+      {record.notes && <p className="ct-card-notes">{record.notes}</p>}
     </div>
   )
 }
