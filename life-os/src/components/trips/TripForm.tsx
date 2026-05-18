@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Trip } from '@/types/trips'
+import CityAutocomplete, { CityValue } from './CityAutocomplete'
 
 export default function TripForm({
   userId,
@@ -20,6 +21,11 @@ export default function TripForm({
   const [description, setDescription] = useState(trip?.description ?? '')
   const [startDate, setStartDate] = useState(trip?.start_date ?? '')
   const [endDate, setEndDate] = useState(trip?.end_date ?? '')
+  const [destination, setDestination] = useState<CityValue | null>(
+    trip?.destination && trip?.destination_lat != null && trip?.destination_lon != null
+      ? { name: trip.destination, lat: trip.destination_lat, lon: trip.destination_lon }
+      : null
+  )
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -32,6 +38,9 @@ export default function TripForm({
       description: description.trim() || null,
       start_date: startDate || null,
       end_date: endDate || null,
+      destination: destination?.name ?? null,
+      destination_lat: destination?.lat ?? null,
+      destination_lon: destination?.lon ?? null,
       updated_at: new Date().toISOString(),
     }
     if (trip) {
@@ -58,6 +67,11 @@ export default function TripForm({
           <div className="field-group">
             <label className="label">Trip name <span className="req">*</span></label>
             <input className="input-field" value={name} onChange={e => setName(e.target.value)} placeholder="e.g. Barcelona 2026" autoFocus />
+          </div>
+          <div className="field-group">
+            <label className="label">Destination</label>
+            <CityAutocomplete value={destination} onChange={setDestination} inputClassName="input-field" />
+            <p className="field-hint">Used for weather forecasts. Start typing to search cities.</p>
           </div>
           <div className="field-group">
             <label className="label">Description</label>
@@ -96,6 +110,7 @@ export default function TripForm({
         .modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.875rem 1.25rem; border-top: 1px solid var(--border-light); flex-shrink: 0; }
         .form-error { font-size: 0.875rem; color: #dc2626; background: #fef2f2; border: 1px solid #fecaca; border-radius: 6px; padding: 0.5rem 0.75rem; }
         .req { color: var(--terracotta); }
+        .field-hint { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.2rem; }
       `}</style>
     </div>
   )

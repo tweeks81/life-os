@@ -5,6 +5,9 @@ export interface Trip {
   description: string | null
   start_date: string | null
   end_date: string | null
+  destination: string | null
+  destination_lat: number | null
+  destination_lon: number | null
   created_at: string
   updated_at: string
 }
