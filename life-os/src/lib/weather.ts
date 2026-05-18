@@ -93,3 +93,9 @@ export async function getWeatherForLocation(query: string): Promise<LocationWeat
   if (!days) return null
   return { locationName: geo.name, days }
 }
+
+export async function getWeatherByCoords(lat: number, lon: number, locationName: string, days = 7): Promise<LocationWeather | null> {
+  const forecasts = await fetchWeather(lat, lon, days)
+  if (!forecasts) return null
+  return { locationName, days: forecasts }
+}
