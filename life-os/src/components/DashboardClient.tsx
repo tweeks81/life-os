@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import NavBar from './NavBar'
 import { EVENT_TYPE_COLOURS, EVENT_TYPE_LABELS, EventType } from '@/lib/calendar'
+import { LocationWeather } from '@/lib/weather'
 
 interface DashCalEvent {
   id: string
@@ -76,6 +77,8 @@ export default function DashboardClient({
   vehicleWarnings,
   mortgageWarnings,
   nextTrip,
+  homeWeather,
+  tripWeather,
 }: {
   profile: any
   firstName: string
@@ -87,6 +90,8 @@ export default function DashboardClient({
   vehicleWarnings: { id: string; name: string; reg_number: string | null; criticalIssues: string[]; warningIssues: string[] }[]
   mortgageWarnings: { propertyId: string; propertyName: string; lender: string; endDate: string; daysUntil: number }[]
   nextTrip: { name: string; daysUntil: number; destination: string | null } | null
+  homeWeather: LocationWeather | null
+  tripWeather: LocationWeather | null
 }) {
   const now = new Date()
   const hour = now.getHours()
@@ -199,6 +204,13 @@ export default function DashboardClient({
         )}
 
         {nextTrip && <NextTripCard trip={nextTrip} />}
+
+        {(homeWeather || tripWeather) && (
+          <div className="weather-section">
+            {homeWeather && <WeatherWidget weather={homeWeather} />}
+            {tripWeather && <WeatherWidget weather={tripWeather} variant="trip" />}
+          </div>
+        )}
 
         <div className="dash-columns">
 
@@ -444,5 +456,54 @@ function NextTripCard({ trip }: { trip: { name: string; daysUntil: number; desti
         )}
       </div>
     </Link>
+  )
+}
+
+function WeatherWidget({ weather, variant = 'home' }: { weather: LocationWeather; variant?: 'home' | 'trip' }) {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+
+  const dayLabel = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00')
+    const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+    if (diff === 0) return 'Today'
+    if (diff === 1) return 'Tomorrow'
+    return d.toLocaleDateString('en-GB', { weekday: 'short' })
+  }
+
+  const isTrip = variant === 'trip'
+
+  return (
+    <div className={`weather-widget ${isTrip ? 'weather-trip' : ''}`}>
+      <div className="weather-header">
+        <span className="weather-location-icon">{isTrip ? '' : '📍'}</span>
+        <span className="weather-location-name">{weather.locationName}</span>
+      </div>
+      <div className="weather-days">
+        {weather.days.map(day => (
+          <div key={day.date} className="weather-day">
+            <div className="weather-day-label">{dayLabel(day.date)}</div>
+            <div className="weather-day-emoji" title={day.description}>{day.emoji}</div>
+            <div className="weather-day-high">{day.maxTemp}°</div>
+            <div className="weather-day-low">{day.minTemp}°</div>
+          </div>
+        ))}
+      </div>
+
+      <style>{`
+        .weather-section { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 0.25rem; }
+        .weather-widget { background: white; border: 1px solid var(--border-light); border-radius: 14px; padding: 1rem 1.25rem; box-shadow: 0 1px 6px var(--shadow-warm); }
+        .weather-widget.weather-trip { background: #f0f9ff; border-color: #bae6fd; }
+        .weather-header { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.875rem; }
+        .weather-location-icon { font-size: 0.875rem; }
+        .weather-location-name { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
+        .weather-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; }
+        .weather-day { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 0.5rem 0.25rem; border-radius: 10px; background: var(--cream); }
+        .weather-widget.weather-trip .weather-day { background: #e0f2fe; }
+        .weather-day-label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+        .weather-day-emoji { font-size: 1.5rem; line-height: 1; }
+        .weather-day-high { font-size: 0.875rem; font-weight: 700; color: var(--deep-brown); }
+        .weather-day-low { font-size: 0.75rem; color: var(--text-muted); }
+      `}</style>
+    </div>
   )
 }

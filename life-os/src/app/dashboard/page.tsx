@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation'
 import NavBar from '@/components/NavBar'
 import DashboardClient from '@/components/DashboardClient'
 import { generateEventsForRange, RawCalendarEvent, ContactBirthday, RawTripForCalendar } from '@/lib/calendar'
+import { getWeatherForLocation, LocationWeather } from '@/lib/weather'
 
 function computeServiceStatus(serviceRows: { vehicle_id: string; service_date: string }[]) {
   const latest: Record<string, string> = {}
@@ -198,11 +199,52 @@ export default async function DashboardPage() {
 
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
+  // ── Weather ──────────────────────────────────────────────────────
+  // Home location: primary property's town/city
+  let homeWeather: LocationWeather | null = null
+  const { data: primaryProperty } = await supabase
+    .from('properties')
+    .select('address_town, address_city, address_postcode, address_country')
+    .eq('user_id', user.id)
+    .eq('is_primary_residence', true)
+    .maybeSingle()
+
+  const homeQuery = primaryProperty
+    ? [primaryProperty.address_town, primaryProperty.address_city, primaryProperty.address_postcode, primaryProperty.address_country]
+        .filter(Boolean).join(', ')
+    : null
+
+  if (homeQuery) {
+    homeWeather = await getWeatherForLocation(homeQuery)
+  }
+
+  // Trip weather: only if next trip is within 14 days and has a destination
+  let tripWeather: LocationWeather | null = null
+  if (nextTrip && nextTrip.daysUntil <= 14 && candidateTripId) {
+    // Try accommodation address first
+    const { data: accomRow } = await (supabase as any)
+      .from('trip_accommodations')
+      .select('address, name')
+      .eq('trip_id', candidateTripId)
+      .not('address', 'is', null)
+      .order('check_in_date', { ascending: true })
+      .limit(1)
+      .maybeSingle()
+
+    const tripQuery = accomRow?.address ?? nextTrip.destination ?? null
+    if (tripQuery) {
+      tripWeather = await getWeatherForLocation(tripQuery)
+      if (tripWeather) tripWeather = { ...tripWeather, locationName: `✈ ${nextTrip.name} — ${tripWeather.locationName}` }
+    }
+  }
+
   return (
     <DashboardClient
       profile={profile}
       firstName={firstName}
       nextTrip={nextTrip}
+      homeWeather={homeWeather}
+      tripWeather={tripWeather}
       calEvents={calEvents.map(e => ({
         id: e.id,
         title: e.title,
