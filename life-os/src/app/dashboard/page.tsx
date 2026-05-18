@@ -3,7 +3,7 @@ import { redirect } from 'next/navigation'
 import NavBar from '@/components/NavBar'
 import DashboardClient from '@/components/DashboardClient'
 import { generateEventsForRange, RawCalendarEvent, ContactBirthday, RawTripForCalendar } from '@/lib/calendar'
-import { getWeatherForLocation, LocationWeather } from '@/lib/weather'
+import { getWeatherForLocation, getWeatherByCoords, LocationWeather } from '@/lib/weather'
 
 function computeServiceStatus(serviceRows: { vehicle_id: string; service_date: string }[]) {
   const latest: Record<string, string> = {}
@@ -237,45 +237,42 @@ export default async function DashboardPage() {
     }
   }
 
-  // Trip weather: only if next trip is within 14 days
-  let tripWeather: LocationWeather | null = null
-  if (nextTrip && nextTrip.daysUntil <= 14 && candidateTripId) {
-    // Gather candidate location strings in priority order:
-    // 1. Accommodation address (most precise)
-    // 2. Accommodation name (e.g. "Paris Marriott" — often contains city)
-    // 3. Trip name (users typically name trips after destination e.g. "Paris 2025")
-    // 4. Raw destination field (arrive_airport code — least reliable)
-    const { data: accomRow } = await (supabase as any)
-      .from('trip_accommodations')
-      .select('address, name')
-      .eq('trip_id', candidateTripId)
-      .order('check_in_date', { ascending: true })
-      .limit(1)
-      .maybeSingle()
+  // Trip weather: query all trips starting within 14 days that have stored destination coords
+  const fourteenDaysDate = new Date(today); fourteenDaysDate.setDate(fourteenDaysDate.getDate() + 14)
+  const fourteenDaysStr = fourteenDaysDate.toISOString().split('T')[0]
 
-    const candidates = [
-      accomRow?.address,
-      accomRow?.name,
-      nextTrip.name,
-      nextTrip.destination,
-    ].filter((s): s is string => !!s && s.trim().length > 0)
+  const { data: upcomingTripRows } = await (supabase as any)
+    .from('trips')
+    .select('id, name, destination, destination_lat, destination_lon, start_date')
+    .eq('user_id', user.id)
+    .not('destination_lat', 'is', null)
+    .not('start_date', 'is', null)
+    .gte('start_date', todayStr)
+    .lte('start_date', fourteenDaysStr)
+    .order('start_date', { ascending: true })
 
-    for (const query of candidates) {
-      tripWeather = await getWeatherForLocation(query)
-      if (tripWeather) {
-        tripWeather = { ...tripWeather, locationName: `✈ ${nextTrip.name} — ${tripWeather.locationName}` }
-        break
-      }
-    }
+  const tripWeatherResults: LocationWeather[] = []
+  if (upcomingTripRows && upcomingTripRows.length > 0) {
+    const fetches = (upcomingTripRows as any[]).map(async (t: any) => {
+      const w = await getWeatherByCoords(t.destination_lat, t.destination_lon, t.destination ?? t.name, 7)
+      if (w) tripWeatherResults.push({ ...w, locationName: `✈ ${t.name}${w.locationName !== t.name ? ` — ${w.locationName}` : ''}` })
+    })
+    await Promise.all(fetches)
+    // Restore order (Promise.all can resolve out of order)
+    tripWeatherResults.sort((a, b) => a.locationName.localeCompare(b.locationName))
   }
+
+  const weatherLocations: LocationWeather[] = [
+    ...(homeWeather ? [homeWeather] : []),
+    ...tripWeatherResults,
+  ]
 
   return (
     <DashboardClient
       profile={profile}
       firstName={firstName}
       nextTrip={nextTrip}
-      homeWeather={homeWeather}
-      tripWeather={tripWeather}
+      weatherLocations={weatherLocations}
       calEvents={calEvents.map(e => ({
         id: e.id,
         title: e.title,

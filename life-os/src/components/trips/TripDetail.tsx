@@ -6,6 +6,7 @@ import {
   ACCOMMODATION_ICONS, ACCOMMODATION_TYPES,
   formatDTInZone, tzShort, formatDate, flightDuration,
 } from '@/types/trips'
+import type { DayForecast } from '@/lib/weather'
 import FlightForm from './FlightForm'
 import ParkingForm from './ParkingForm'
 import TaxiForm from './TaxiForm'
@@ -157,6 +158,15 @@ export default function TripDetail({
           )}
         </div>
       </div>
+
+      {/* Weather forecast for destination */}
+      {trip.destination_lat != null && trip.destination_lon != null && (
+        <TripWeatherBar
+          lat={trip.destination_lat}
+          lon={trip.destination_lon}
+          destination={trip.destination ?? ''}
+        />
+      )}
 
       {isOwner && (
         <div className="td-add-bar">
@@ -380,7 +390,110 @@ export default function TripDetail({
         .td-del-btn:hover { background: #fef2f2; color: #dc2626; border-color: #fca5a5; }
         .td-del-confirm { padding: 0.25rem 0.5rem; border-radius: 5px; border: 1px solid #fca5a5; background: #fef2f2; color: #dc2626; font-size: 0.75rem; font-weight: 600; cursor: pointer; font-family: var(--font-body); }
         .td-del-cancel { padding: 0.25rem 0.5rem; border-radius: 5px; border: 1px solid var(--border); background: white; color: var(--text-muted); font-size: 0.75rem; font-weight: 500; cursor: pointer; font-family: var(--font-body); }
+        .twb-wrap { background: linear-gradient(135deg, #e0f2fe 0%, #f0f9ff 100%); border-bottom: 1px solid #bae6fd; padding: 0.75rem 1.5rem; flex-shrink: 0; display: flex; flex-direction: column; gap: 0.625rem; }
+        .twb-wrap.twb-loading { flex-direction: row; align-items: center; gap: 1rem; }
+        .twb-header { display: flex; align-items: center; gap: 0.5rem; }
+        .twb-icon { font-size: 1rem; }
+        .twb-dest { font-size: 0.8125rem; font-weight: 600; color: #0c4a6e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+        .twb-sublabel { font-size: 0.75rem; color: #0369a1; flex-shrink: 0; }
+        .twb-spinner { font-size: 0.8125rem; color: #0369a1; font-style: italic; }
+        .twb-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.375rem; }
+        .twb-day { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.5rem 0.25rem; border-radius: 10px; background: rgba(255,255,255,0.6); }
+        .twb-day-label { font-size: 0.68rem; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+        .twb-day-emoji { font-size: 1.5rem; line-height: 1; }
+        .twb-day-high { font-size: 0.875rem; font-weight: 700; color: #0c4a6e; }
+        .twb-day-low { font-size: 0.75rem; color: #0369a1; }
       `}</style>
+    </div>
+  )
+}
+
+// ─── Trip weather bar (client-side fetch) ────────────────────────────────────
+
+const WMO_MAP: Record<number, [string, string]> = {
+  0: ['☀️', 'Clear sky'], 1: ['🌤️', 'Mainly clear'], 2: ['⛅', 'Partly cloudy'], 3: ['☁️', 'Overcast'],
+  45: ['🌫️', 'Fog'], 48: ['🌫️', 'Freezing fog'],
+  51: ['🌦️', 'Light drizzle'], 53: ['🌦️', 'Drizzle'], 55: ['🌧️', 'Heavy drizzle'],
+  61: ['🌧️', 'Slight rain'], 63: ['🌧️', 'Rain'], 65: ['🌧️', 'Heavy rain'],
+  71: ['🌨️', 'Slight snow'], 73: ['🌨️', 'Snow'], 75: ['❄️', 'Heavy snow'], 77: ['🌨️', 'Snow grains'],
+  80: ['🌦️', 'Slight showers'], 81: ['🌧️', 'Showers'], 82: ['⛈️', 'Heavy showers'],
+  85: ['🌨️', 'Snow showers'], 86: ['❄️', 'Heavy snow showers'],
+  95: ['⛈️', 'Thunderstorm'], 96: ['⛈️', 'Thunderstorm + hail'], 99: ['⛈️', 'Thunderstorm + hail'],
+}
+
+function wmoLookup(code: number): [string, string] {
+  return WMO_MAP[code] ?? WMO_MAP[Math.floor(code / 10) * 10] ?? ['🌡️', 'Unknown']
+}
+
+function TripWeatherBar({ lat, lon, destination }: { lat: number; lon: number; destination: string }) {
+  const [days, setDays] = useState<DayForecast[] | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    fetch(
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`
+    )
+      .then(r => r.json())
+      .then(data => {
+        const d = data.daily
+        if (!d?.time) { setLoading(false); return }
+        const forecasts: DayForecast[] = d.time.map((date: string, i: number) => {
+          const code: number = d.weathercode[i] ?? 0
+          const [emoji, description] = wmoLookup(code)
+          return {
+            date,
+            maxTemp: Math.round(d.temperature_2m_max[i] ?? 0),
+            minTemp: Math.round(d.temperature_2m_min[i] ?? 0),
+            weatherCode: code,
+            emoji,
+            description,
+          } satisfies DayForecast
+        })
+        setDays(forecasts)
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+  }, [lat, lon])
+
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const dayLabel = (dateStr: string) => {
+    const d = new Date(dateStr + 'T00:00:00')
+    const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
+    if (diff === 0) return 'Today'
+    if (diff === 1) return 'Tmrw'
+    return d.toLocaleDateString('en-GB', { weekday: 'short' })
+  }
+
+  if (loading) {
+    return (
+      <div className="twb-wrap twb-loading">
+        <span className="twb-icon">🌤️</span>
+        <span className="twb-dest">{destination}</span>
+        <span className="twb-spinner">Loading forecast…</span>
+      </div>
+    )
+  }
+
+  if (!days) return null
+
+  return (
+    <div className="twb-wrap">
+      <div className="twb-header">
+        <span className="twb-icon">🌤️</span>
+        <span className="twb-dest">{destination}</span>
+        <span className="twb-sublabel">7-day forecast</span>
+      </div>
+      <div className="twb-days">
+        {days.map(day => (
+          <div key={day.date} className="twb-day">
+            <div className="twb-day-label">{dayLabel(day.date)}</div>
+            <div className="twb-day-emoji" title={day.description}>{day.emoji}</div>
+            <div className="twb-day-high">{day.maxTemp}°</div>
+            <div className="twb-day-low">{day.minTemp}°</div>
+          </div>
+        ))}
+      </div>
     </div>
   )
 }

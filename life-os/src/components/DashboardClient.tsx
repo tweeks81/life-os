@@ -1,5 +1,6 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import NavBar from './NavBar'
 import { EVENT_TYPE_COLOURS, EVENT_TYPE_LABELS, EventType } from '@/lib/calendar'
@@ -77,8 +78,7 @@ export default function DashboardClient({
   vehicleWarnings,
   mortgageWarnings,
   nextTrip,
-  homeWeather,
-  tripWeather,
+  weatherLocations,
 }: {
   profile: any
   firstName: string
@@ -90,9 +90,9 @@ export default function DashboardClient({
   vehicleWarnings: { id: string; name: string; reg_number: string | null; criticalIssues: string[]; warningIssues: string[] }[]
   mortgageWarnings: { propertyId: string; propertyName: string; lender: string; endDate: string; daysUntil: number }[]
   nextTrip: { name: string; daysUntil: number; destination: string | null } | null
-  homeWeather: LocationWeather | null
-  tripWeather: LocationWeather | null
+  weatherLocations: LocationWeather[]
 }) {
+  const [weatherIdx, setWeatherIdx] = useState(0)
   const now = new Date()
   const hour = now.getHours()
   const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening'
@@ -205,11 +205,8 @@ export default function DashboardClient({
 
         {nextTrip && <NextTripCard trip={nextTrip} />}
 
-        {(homeWeather || tripWeather) && (
-          <div className="weather-section">
-            {homeWeather && <WeatherWidget weather={homeWeather} />}
-            {tripWeather && <WeatherWidget weather={tripWeather} variant="trip" />}
-          </div>
+        {weatherLocations.length > 0 && (
+          <WeatherCarousel locations={weatherLocations} idx={weatherIdx} setIdx={setWeatherIdx} />
         )}
 
         <div className="dash-columns">
@@ -459,50 +456,87 @@ function NextTripCard({ trip }: { trip: { name: string; daysUntil: number; desti
   )
 }
 
-function WeatherWidget({ weather, variant = 'home' }: { weather: LocationWeather; variant?: 'home' | 'trip' }) {
-  const today = new Date(); today.setHours(0, 0, 0, 0)
+function WeatherCarousel({ locations, idx, setIdx }: {
+  locations: LocationWeather[]
+  idx: number
+  setIdx: (i: number) => void
+}) {
+  const safeIdx = Math.min(idx, locations.length - 1)
+  const weather = locations[safeIdx]
+  const isTrip = weather.locationName.startsWith('✈')
+  const total = locations.length
 
+  const today = new Date(); today.setHours(0, 0, 0, 0)
   const dayLabel = (dateStr: string) => {
     const d = new Date(dateStr + 'T00:00:00')
     const diff = Math.round((d.getTime() - today.getTime()) / 86400000)
     if (diff === 0) return 'Today'
-    if (diff === 1) return 'Tomorrow'
+    if (diff === 1) return 'Tmrw'
     return d.toLocaleDateString('en-GB', { weekday: 'short' })
   }
 
-  const isTrip = variant === 'trip'
-
   return (
-    <div className={`weather-widget ${isTrip ? 'weather-trip' : ''}`}>
-      <div className="weather-header">
-        <span className="weather-location-icon">{isTrip ? '' : '📍'}</span>
-        <span className="weather-location-name">{weather.locationName}</span>
+    <div className={`wc-wrap ${isTrip ? 'wc-trip' : ''}`}>
+      <div className="wc-header">
+        <button
+          className="wc-arrow"
+          onClick={() => setIdx(safeIdx > 0 ? safeIdx - 1 : total - 1)}
+          disabled={total <= 1}
+          aria-label="Previous location"
+        >‹</button>
+        <div className="wc-header-center">
+          <span className="wc-loc-icon">{isTrip ? '✈' : '📍'}</span>
+          <span className="wc-loc-name">{weather.locationName.replace(/^✈\s*/, '')}</span>
+        </div>
+        <button
+          className="wc-arrow"
+          onClick={() => setIdx(safeIdx < total - 1 ? safeIdx + 1 : 0)}
+          disabled={total <= 1}
+          aria-label="Next location"
+        >›</button>
       </div>
-      <div className="weather-days">
+
+      <div className="wc-days">
         {weather.days.map(day => (
-          <div key={day.date} className="weather-day">
-            <div className="weather-day-label">{dayLabel(day.date)}</div>
-            <div className="weather-day-emoji" title={day.description}>{day.emoji}</div>
-            <div className="weather-day-high">{day.maxTemp}°</div>
-            <div className="weather-day-low">{day.minTemp}°</div>
+          <div key={day.date} className="wc-day">
+            <div className="wc-day-label">{dayLabel(day.date)}</div>
+            <div className="wc-day-emoji" title={day.description}>{day.emoji}</div>
+            <div className="wc-day-high">{day.maxTemp}°</div>
+            <div className="wc-day-low">{day.minTemp}°</div>
           </div>
         ))}
       </div>
 
+      {total > 1 && (
+        <div className="wc-dots">
+          {locations.map((_, i) => (
+            <button key={i} className={`wc-dot ${i === safeIdx ? 'wc-dot-active' : ''}`} onClick={() => setIdx(i)} aria-label={`Location ${i + 1}`} />
+          ))}
+        </div>
+      )}
+
       <style>{`
-        .weather-section { display: flex; flex-direction: column; gap: 0.625rem; margin-bottom: 0.25rem; }
-        .weather-widget { background: white; border: 1px solid var(--border-light); border-radius: 14px; padding: 1rem 1.25rem; box-shadow: 0 1px 6px var(--shadow-warm); }
-        .weather-widget.weather-trip { background: #f0f9ff; border-color: #bae6fd; }
-        .weather-header { display: flex; align-items: center; gap: 0.375rem; margin-bottom: 0.875rem; }
-        .weather-location-icon { font-size: 0.875rem; }
-        .weather-location-name { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); }
-        .weather-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; }
-        .weather-day { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 0.5rem 0.25rem; border-radius: 10px; background: var(--cream); }
-        .weather-widget.weather-trip .weather-day { background: #e0f2fe; }
-        .weather-day-label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
-        .weather-day-emoji { font-size: 1.5rem; line-height: 1; }
-        .weather-day-high { font-size: 0.875rem; font-weight: 700; color: var(--deep-brown); }
-        .weather-day-low { font-size: 0.75rem; color: var(--text-muted); }
+        .wc-wrap { background: white; border: 1px solid var(--border-light); border-radius: 14px; padding: 1rem 1.25rem; box-shadow: 0 1px 6px var(--shadow-warm); margin-bottom: 1.5rem; }
+        .wc-wrap.wc-trip { background: #f0f9ff; border-color: #bae6fd; }
+        .wc-header { display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.875rem; }
+        .wc-header-center { flex: 1; min-width: 0; display: flex; align-items: center; gap: 0.375rem; }
+        .wc-loc-icon { font-size: 0.875rem; flex-shrink: 0; }
+        .wc-loc-name { font-size: 0.8125rem; font-weight: 600; color: var(--text-secondary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .wc-arrow { width: 28px; height: 28px; border-radius: 8px; border: 1px solid var(--border-light); background: white; cursor: pointer; font-size: 1.125rem; line-height: 1; color: var(--text-secondary); display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: all 0.15s; padding: 0; }
+        .wc-arrow:hover:not(:disabled) { background: var(--cream-dark); color: var(--deep-brown); border-color: var(--border); }
+        .wc-arrow:disabled { opacity: 0.25; cursor: default; }
+        .wc-wrap.wc-trip .wc-arrow { background: #e0f2fe; border-color: #bae6fd; }
+        .wc-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.25rem; }
+        .wc-day { display: flex; flex-direction: column; align-items: center; gap: 0.2rem; padding: 0.5rem 0.25rem; border-radius: 10px; background: var(--cream); }
+        .wc-wrap.wc-trip .wc-day { background: #e0f2fe; }
+        .wc-day-label { font-size: 0.68rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
+        .wc-day-emoji { font-size: 1.5rem; line-height: 1; }
+        .wc-day-high { font-size: 0.875rem; font-weight: 700; color: var(--deep-brown); }
+        .wc-day-low { font-size: 0.75rem; color: var(--text-muted); }
+        .wc-dots { display: flex; justify-content: center; gap: 0.375rem; margin-top: 0.75rem; }
+        .wc-dot { width: 7px; height: 7px; border-radius: 50%; border: none; background: var(--border); cursor: pointer; padding: 0; transition: all 0.15s; }
+        .wc-dot-active { background: var(--terracotta); transform: scale(1.2); }
+        .wc-wrap.wc-trip .wc-dot-active { background: #0369a1; }
       `}</style>
     </div>
   )
