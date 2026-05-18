@@ -237,23 +237,35 @@ export default async function DashboardPage() {
     }
   }
 
-  // Trip weather: only if next trip is within 14 days and has a destination
+  // Trip weather: only if next trip is within 14 days
   let tripWeather: LocationWeather | null = null
   if (nextTrip && nextTrip.daysUntil <= 14 && candidateTripId) {
-    // Try accommodation address first
+    // Gather candidate location strings in priority order:
+    // 1. Accommodation address (most precise)
+    // 2. Accommodation name (e.g. "Paris Marriott" — often contains city)
+    // 3. Trip name (users typically name trips after destination e.g. "Paris 2025")
+    // 4. Raw destination field (arrive_airport code — least reliable)
     const { data: accomRow } = await (supabase as any)
       .from('trip_accommodations')
       .select('address, name')
       .eq('trip_id', candidateTripId)
-      .not('address', 'is', null)
       .order('check_in_date', { ascending: true })
       .limit(1)
       .maybeSingle()
 
-    const tripQuery = accomRow?.address ?? nextTrip.destination ?? null
-    if (tripQuery) {
-      tripWeather = await getWeatherForLocation(tripQuery)
-      if (tripWeather) tripWeather = { ...tripWeather, locationName: `✈ ${nextTrip.name} — ${tripWeather.locationName}` }
+    const candidates = [
+      accomRow?.address,
+      accomRow?.name,
+      nextTrip.name,
+      nextTrip.destination,
+    ].filter((s): s is string => !!s && s.trim().length > 0)
+
+    for (const query of candidates) {
+      tripWeather = await getWeatherForLocation(query)
+      if (tripWeather) {
+        tripWeather = { ...tripWeather, locationName: `✈ ${nextTrip.name} — ${tripWeather.locationName}` }
+        break
+      }
     }
   }
 
