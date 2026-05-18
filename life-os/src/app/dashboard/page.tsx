@@ -200,22 +200,41 @@ export default async function DashboardPage() {
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
   // ── Weather ──────────────────────────────────────────────────────
-  // Home location: primary property's town/city
+  // Home location: primary property first, then any owned property
   let homeWeather: LocationWeather | null = null
-  const { data: primaryProperty } = await supabase
+
+  let propForWeather: { address_town: string | null; address_city: string | null; address_postcode: string | null; address_country: string | null } | null = null
+
+  const { data: primaryProp } = await supabase
     .from('properties')
     .select('address_town, address_city, address_postcode, address_country')
     .eq('user_id', user.id)
     .eq('is_primary_residence', true)
     .maybeSingle()
 
-  const homeQuery = primaryProperty
-    ? [primaryProperty.address_town, primaryProperty.address_city, primaryProperty.address_postcode, primaryProperty.address_country]
-        .filter(Boolean).join(', ')
-    : null
+  if (primaryProp) {
+    propForWeather = primaryProp
+  } else {
+    // Fall back to first property the user owns
+    const { data: anyProp } = await supabase
+      .from('properties')
+      .select('address_town, address_city, address_postcode, address_country')
+      .eq('user_id', user.id)
+      .limit(1)
+      .maybeSingle()
+    propForWeather = anyProp ?? null
+  }
 
-  if (homeQuery) {
-    homeWeather = await getWeatherForLocation(homeQuery)
+  if (propForWeather) {
+    // Prefer town or city name alone — geocoding APIs work best with place names
+    const homeQuery =
+      propForWeather.address_town ||
+      propForWeather.address_city ||
+      propForWeather.address_postcode ||
+      null
+    if (homeQuery) {
+      homeWeather = await getWeatherForLocation(homeQuery)
+    }
   }
 
   // Trip weather: only if next trip is within 14 days and has a destination
