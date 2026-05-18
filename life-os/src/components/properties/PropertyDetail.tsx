@@ -5,9 +5,11 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import {
   Property, PropertyPurchase, PropertyMortgage, PropertyUtility, PropertyCouncilTax,
+  PropertyAsset, AssetNote, AssetType,
   UtilityType, MortgageProductType,
   PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS, MORTGAGE_PRODUCT_LABELS,
   UTILITY_TYPE_LABELS, UTILITY_TYPE_ICONS,
+  ASSET_TYPE_LABELS, ASSET_TYPE_ICONS,
   formatAddress,
 } from '@/types/properties'
 import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
@@ -15,14 +17,16 @@ import PropertyPurchaseSection from './PropertyPurchaseSection'
 import MortgageForm from './MortgageForm'
 import UtilityForm from './UtilityForm'
 import CouncilTaxForm from './CouncilTaxForm'
+import AssetForm from './AssetForm'
 
-type Tab = 'info' | 'mortgage' | 'utilities' | 'council-tax'
+type Tab = 'info' | 'mortgage' | 'utilities' | 'council-tax' | 'assets'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
   { id: 'info', label: 'Info', icon: '🏠' },
   { id: 'mortgage', label: 'Mortgage', icon: '🏦' },
   { id: 'utilities', label: 'Utilities', icon: '⚡' },
   { id: 'council-tax', label: 'Council Tax', icon: '🏛' },
+  { id: 'assets', label: 'Assets', icon: '📦' },
 ]
 
 function isMortgageExpired(endDate: string | null): boolean {
@@ -43,6 +47,10 @@ function isMortgageExpiringSoon(endDate: string | null, days = 90): boolean {
 function fmtDate(d: string | null | undefined) {
   if (!d) return '—'
   return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function fmtDateTime(d: string) {
+  return new Date(d).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
 }
 
 export default function PropertyDetail({
@@ -88,6 +96,15 @@ export default function PropertyDetail({
   const [editingCouncilTax, setEditingCouncilTax] = useState<PropertyCouncilTax | null>(null)
   const [deletingCouncilTaxId, setDeletingCouncilTaxId] = useState<string | null>(null)
 
+  const [assets, setAssets] = useState<PropertyAsset[]>([])
+  const [showAssetForm, setShowAssetForm] = useState(false)
+  const [editingAsset, setEditingAsset] = useState<PropertyAsset | null>(null)
+  const [deletingAssetId, setDeletingAssetId] = useState<string | null>(null)
+  const [expandedAssetId, setExpandedAssetId] = useState<string | null>(null)
+  const [assetNotes, setAssetNotes] = useState<Record<string, AssetNote[]>>({})
+  const [newNoteText, setNewNoteText] = useState('')
+  const [savingNote, setSavingNote] = useState(false)
+
   const loadMortgages = useCallback(async () => {
     const { data } = await (supabase as any)
       .from('property_mortgages')
@@ -116,18 +133,39 @@ export default function PropertyDetail({
     setCouncilTaxRecords(data ?? [])
   }, [supabase, property.id])
 
+  const loadAssets = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('property_assets')
+      .select('*')
+      .eq('property_id', property.id)
+      .order('asset_type', { ascending: true })
+      .order('name', { ascending: true })
+    setAssets(data ?? [])
+  }, [supabase, property.id])
+
+  const loadAssetNotes = useCallback(async (assetId: string) => {
+    const { data } = await (supabase as any)
+      .from('property_asset_notes')
+      .select('*')
+      .eq('asset_id', assetId)
+      .order('created_at', { ascending: false })
+    setAssetNotes(prev => ({ ...prev, [assetId]: data ?? [] }))
+  }, [supabase])
+
   // Load everything on mount
   useEffect(() => {
     loadMortgages()
     loadUtilities()
     loadCouncilTax()
-  }, [loadMortgages, loadUtilities, loadCouncilTax])
+    loadAssets()
+  }, [loadMortgages, loadUtilities, loadCouncilTax, loadAssets])
 
   useEffect(() => {
     if (tab === 'mortgage') loadMortgages()
     if (tab === 'utilities') loadUtilities()
     if (tab === 'council-tax') loadCouncilTax()
-  }, [tab, loadMortgages, loadUtilities, loadCouncilTax])
+    if (tab === 'assets') loadAssets()
+  }, [tab, loadMortgages, loadUtilities, loadCouncilTax, loadAssets])
 
   // Reset when a different property is selected
   useEffect(() => {
@@ -135,6 +173,9 @@ export default function PropertyDetail({
     setMortgages([])
     setUtilities([])
     setCouncilTaxRecords([])
+    setAssets([])
+    setAssetNotes({})
+    setExpandedAssetId(null)
   }, [property.id])
 
   const handleDelete = () => {
@@ -163,6 +204,45 @@ export default function PropertyDetail({
     await (supabase as any).from('property_council_tax').delete().eq('id', id)
     setDeletingCouncilTaxId(null)
     loadCouncilTax()
+  }
+
+  const handleDeleteAsset = async (id: string) => {
+    if (!confirm('Delete this asset and all its notes?')) return
+    setDeletingAssetId(id)
+    await (supabase as any).from('property_assets').delete().eq('id', id)
+    setDeletingAssetId(null)
+    if (expandedAssetId === id) setExpandedAssetId(null)
+    loadAssets()
+  }
+
+  const handleExpandAsset = (id: string) => {
+    if (expandedAssetId === id) {
+      setExpandedAssetId(null)
+    } else {
+      setExpandedAssetId(id)
+      setNewNoteText('')
+      loadAssetNotes(id)
+    }
+  }
+
+  const handleAddNote = async (assetId: string) => {
+    if (!newNoteText.trim()) return
+    setSavingNote(true)
+    await (supabase as any).from('property_asset_notes').insert({
+      asset_id: assetId,
+      property_id: property.id,
+      user_id: userId,
+      note: newNoteText.trim(),
+    })
+    setNewNoteText('')
+    setSavingNote(false)
+    loadAssetNotes(assetId)
+  }
+
+  const handleDeleteNote = async (noteId: string, assetId: string) => {
+    if (!confirm('Delete this note?')) return
+    await (supabase as any).from('property_asset_notes').delete().eq('id', noteId)
+    loadAssetNotes(assetId)
   }
 
   // Determine "current" mortgage — non-expired with latest end_date, or most recent if all expired
@@ -551,6 +631,119 @@ export default function PropertyDetail({
             )}
           </div>
         )}
+
+        {/* ── ASSETS TAB ── */}
+        {tab === 'assets' && (
+          <div className="tab-content">
+            {isOwner && (
+              <button className="add-record-btn" onClick={() => { setEditingAsset(null); setShowAssetForm(true) }}>
+                + Add asset
+              </button>
+            )}
+
+            {assets.length === 0 ? (
+              <div className="empty-tab">No assets recorded yet.</div>
+            ) : (
+              <div className="asset-list">
+                {assets.map(a => {
+                  const isExpanded = expandedAssetId === a.id
+                  const notes = assetNotes[a.id] ?? []
+                  return (
+                    <div key={a.id} className={`asset-card ${isExpanded ? 'expanded' : ''}`}>
+                      {/* Card header — always visible */}
+                      <div className="asset-card-header" onClick={() => handleExpandAsset(a.id)}>
+                        <div className="asset-card-left">
+                          <span className="asset-icon">{ASSET_TYPE_ICONS[a.asset_type]}</span>
+                          <div className="asset-info">
+                            <span className="asset-name">{a.name}</span>
+                            <span className="asset-meta">
+                              {ASSET_TYPE_LABELS[a.asset_type]}
+                              {(a.make || a.model) && ` · ${[a.make, a.model].filter(Boolean).join(' ')}`}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="asset-card-right">
+                          {isOwner && (
+                            <div className="asset-actions" onClick={e => e.stopPropagation()}>
+                              <button className="mort-edit-btn" onClick={() => { setEditingAsset(a); setShowAssetForm(true) }} disabled={deletingAssetId === a.id}>Edit</button>
+                              <button className="mort-delete-btn" onClick={() => handleDeleteAsset(a.id)} disabled={deletingAssetId === a.id}>🗑</button>
+                            </div>
+                          )}
+                          <span className="asset-chevron">{isExpanded ? '▲' : '▼'}</span>
+                        </div>
+                      </div>
+
+                      {/* Expanded detail */}
+                      {isExpanded && (
+                        <div className="asset-detail">
+                          {/* Fields */}
+                          <div className="asset-fields">
+                            {a.purchase_date && (
+                              <div className="asset-field">
+                                <span className="asset-field-label">Purchased / installed</span>
+                                <span className="asset-field-value">{fmtDate(a.purchase_date)}</span>
+                              </div>
+                            )}
+                            {a.serial_number && (
+                              <div className="asset-field">
+                                <span className="asset-field-label">Serial number</span>
+                                <span className="asset-field-value asset-serial">{a.serial_number}</span>
+                              </div>
+                            )}
+                          </div>
+
+                          {/* Notes */}
+                          <div className="asset-notes-section">
+                            <div className="asset-notes-heading">Maintenance notes</div>
+
+                            {/* Add note form — owners only */}
+                            {isOwner && (
+                              <div className="asset-note-add">
+                                <textarea
+                                  className="asset-note-input"
+                                  value={newNoteText}
+                                  onChange={e => setNewNoteText(e.target.value)}
+                                  placeholder="Add a maintenance note, service record, repair…"
+                                  rows={2}
+                                />
+                                <button
+                                  className="asset-note-save-btn"
+                                  onClick={() => handleAddNote(a.id)}
+                                  disabled={savingNote || !newNoteText.trim()}
+                                >
+                                  {savingNote ? 'Saving…' : 'Add note'}
+                                </button>
+                              </div>
+                            )}
+
+                            {/* Existing notes */}
+                            {notes.length === 0 ? (
+                              <p className="asset-notes-empty">No notes yet.</p>
+                            ) : (
+                              <div className="asset-notes-list">
+                                {notes.map(n => (
+                                  <div key={n.id} className="asset-note">
+                                    <div className="asset-note-header">
+                                      <span className="asset-note-date">{fmtDateTime(n.created_at)}</span>
+                                      {isOwner && (
+                                        <button className="asset-note-delete" onClick={() => handleDeleteNote(n.id, a.id)}>✕</button>
+                                      )}
+                                    </div>
+                                    <p className="asset-note-text">{n.note}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Mortgage form modal */}
@@ -581,6 +774,16 @@ export default function PropertyDetail({
           record={editingCouncilTax}
           onSaved={() => { setShowCouncilTaxForm(false); setEditingCouncilTax(null); loadCouncilTax() }}
           onClose={() => { setShowCouncilTaxForm(false); setEditingCouncilTax(null) }}
+        />
+      )}
+
+      {showAssetForm && (
+        <AssetForm
+          propertyId={property.id}
+          userId={userId}
+          asset={editingAsset}
+          onSaved={() => { setShowAssetForm(false); setEditingAsset(null); loadAssets() }}
+          onClose={() => { setShowAssetForm(false); setEditingAsset(null) }}
         />
       )}
 
@@ -855,6 +1058,43 @@ export default function PropertyDetail({
         .util-card-provider { font-size: 0.9375rem; font-weight: 600; color: var(--deep-brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .util-card-actions { display: flex; gap: 0.375rem; align-items: center; flex-shrink: 0; }
         .util-card-notes { font-size: 0.8125rem; color: var(--text-secondary); line-height: 1.5; border-top: 1px solid var(--border-light); padding-top: 0.5rem; white-space: pre-wrap; }
+
+        /* Assets tab */
+        .asset-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .asset-card { border: 1px solid var(--border-light); border-radius: 12px; background: white; overflow: hidden; transition: box-shadow 0.15s; }
+        .asset-card.expanded { box-shadow: 0 2px 12px var(--shadow-warm); }
+        .asset-card-header { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; padding: 0.75rem 0.875rem; cursor: pointer; user-select: none; }
+        .asset-card-header:hover { background: var(--cream); }
+        .asset-card-left { display: flex; align-items: center; gap: 0.625rem; flex: 1; min-width: 0; }
+        .asset-icon { font-size: 1.375rem; width: 36px; height: 36px; background: var(--cream-dark); border-radius: 8px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .asset-info { display: flex; flex-direction: column; gap: 0.1rem; min-width: 0; }
+        .asset-name { font-size: 0.9rem; font-weight: 600; color: var(--deep-brown); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .asset-meta { font-size: 0.75rem; color: var(--text-muted); }
+        .asset-card-right { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+        .asset-actions { display: flex; gap: 0.25rem; }
+        .asset-chevron { font-size: 0.65rem; color: var(--text-muted); width: 16px; text-align: center; }
+        .asset-detail { border-top: 1px solid var(--border-light); padding: 0.875rem; display: flex; flex-direction: column; gap: 0.875rem; background: var(--cream); }
+        .asset-fields { display: flex; flex-direction: column; gap: 0.25rem; }
+        .asset-field { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.8125rem; }
+        .asset-field-label { font-size: 0.68rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); width: 130px; flex-shrink: 0; }
+        .asset-field-value { color: var(--text-primary); font-weight: 500; }
+        .asset-serial { font-family: monospace; font-size: 0.8rem; }
+        .asset-notes-section { display: flex; flex-direction: column; gap: 0.625rem; }
+        .asset-notes-heading { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.07em; color: var(--text-muted); }
+        .asset-note-add { display: flex; flex-direction: column; gap: 0.375rem; }
+        .asset-note-input { padding: 0.5rem 0.625rem; border: 1px solid var(--border); border-radius: 8px; font-size: 0.8125rem; font-family: var(--font-body); background: white; color: var(--text-primary); width: 100%; box-sizing: border-box; resize: vertical; min-height: 56px; }
+        .asset-note-input:focus { outline: none; border-color: var(--terracotta); }
+        .asset-note-save-btn { align-self: flex-end; padding: 0.35rem 0.875rem; border-radius: 7px; border: none; background: var(--deep-brown); color: var(--cream); font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: var(--font-body); transition: background 0.15s; }
+        .asset-note-save-btn:disabled { opacity: 0.4; cursor: default; }
+        .asset-note-save-btn:not(:disabled):hover { background: var(--terracotta); }
+        .asset-notes-empty { font-size: 0.8125rem; color: var(--text-muted); font-style: italic; }
+        .asset-notes-list { display: flex; flex-direction: column; gap: 0.5rem; }
+        .asset-note { background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 0.625rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
+        .asset-note-header { display: flex; align-items: center; justify-content: space-between; }
+        .asset-note-date { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); }
+        .asset-note-delete { background: none; border: none; cursor: pointer; font-size: 0.7rem; color: var(--text-muted); padding: 0.1rem 0.25rem; border-radius: 4px; transition: all 0.13s; }
+        .asset-note-delete:hover { color: #dc2626; background: #fef2f2; }
+        .asset-note-text { font-size: 0.8125rem; color: var(--text-primary); line-height: 1.55; white-space: pre-wrap; }
       `}</style>
     </div>
   )

@@ -151,6 +151,72 @@ export interface PropertyCouncilTax {
   updated_at: string
 }
 
+export type AssetType =
+  | 'fridge' | 'freezer' | 'dishwasher' | 'washing_machine' | 'tumble_dryer'
+  | 'boiler' | 'ev_charger' | 'tv' | 'speaker' | 'oven' | 'hob' | 'grill'
+  | 'microwave' | 'slow_cooker' | 'game_system' | 'other'
+
+export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
+  fridge: 'Fridge',
+  freezer: 'Freezer',
+  dishwasher: 'Dishwasher',
+  washing_machine: 'Washing Machine',
+  tumble_dryer: 'Tumble Dryer',
+  boiler: 'Boiler',
+  ev_charger: 'EV Charger',
+  tv: 'TV',
+  speaker: 'Speaker',
+  oven: 'Oven',
+  hob: 'Hob',
+  grill: 'Grill',
+  microwave: 'Microwave',
+  slow_cooker: 'Slow Cooker',
+  game_system: 'Game System',
+  other: 'Other',
+}
+
+export const ASSET_TYPE_ICONS: Record<AssetType, string> = {
+  fridge: '❄️',
+  freezer: '🧊',
+  dishwasher: '🫧',
+  washing_machine: '🌀',
+  tumble_dryer: '💨',
+  boiler: '🔥',
+  ev_charger: '⚡',
+  tv: '📺',
+  speaker: '🔊',
+  oven: '🍳',
+  hob: '🍳',
+  grill: '🥩',
+  microwave: '📡',
+  slow_cooker: '🥘',
+  game_system: '🎮',
+  other: '📦',
+}
+
+export interface PropertyAsset {
+  id: string
+  property_id: string
+  user_id: string
+  name: string
+  asset_type: AssetType
+  make: string | null
+  model: string | null
+  purchase_date: string | null
+  serial_number: string | null
+  created_at: string
+  updated_at: string
+}
+
+export interface AssetNote {
+  id: string
+  asset_id: string
+  property_id: string
+  user_id: string
+  note: string
+  created_at: string
+}
+
 export function formatAddress(p: Property): string {
   return [p.address_line1, p.address_line2, p.address_town, p.address_city, p.address_postcode]
     .filter(Boolean)
