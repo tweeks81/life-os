@@ -33,6 +33,9 @@ export default async function DashboardPage() {
   const weekEnd = new Date(today)
   weekEnd.setDate(weekEnd.getDate() + 7)
   weekEnd.setHours(23, 59, 59, 999)
+  const thirtyDaysEnd = new Date(today)
+  thirtyDaysEnd.setDate(thirtyDaysEnd.getDate() + 30)
+  thirtyDaysEnd.setHours(23, 59, 59, 999)
 
   const todayStr = today.toISOString().split('T')[0]
   const soonDate = new Date(today); soonDate.setDate(soonDate.getDate() + 30)
@@ -114,12 +117,12 @@ export default async function DashboardPage() {
     id: t.id, name: t.name, start_date: t.start_date, end_date: t.end_date,
   }))
 
-  const calEvents = generateEventsForRange(today, weekEnd, allDbEvents, allContacts, profile, dashTrips)
+  const calEvents = generateEventsForRange(today, thirtyDaysEnd, allDbEvents, allContacts, profile, dashTrips)
 
   const relevantTasks = (tasks ?? []).filter((t: any) => {
     if (!t.due_date) return false
     const due = new Date(t.due_date); due.setHours(0, 0, 0, 0)
-    return due <= weekEnd
+    return due <= thirtyDaysEnd
   })
   const urgentNoDue = (tasks ?? []).filter((t: any) => t.priority === 1 && !t.due_date)
 
@@ -168,12 +171,18 @@ export default async function DashboardPage() {
   }
 
   if (candidateTripId && candidateDate) {
-    const { data: tripRow } = await (supabase as any).from('trips').select('name').eq('id', candidateTripId).single()
+    const { data: tripRow } = await (supabase as any).from('trips').select('name, start_date, end_date').eq('id', candidateTripId).single()
     if (tripRow) {
       const startDay = new Date(candidateDate); startDay.setHours(0, 0, 0, 0)
       const todayMidnight = new Date(today); todayMidnight.setHours(0, 0, 0, 0)
       const daysUntil = Math.round((startDay.getTime() - todayMidnight.getTime()) / 86400000)
-      nextTrip = { name: tripRow.name, daysUntil, destination: candidateDestination }
+      nextTrip = {
+        name: tripRow.name,
+        daysUntil,
+        destination: candidateDestination,
+        start_date: tripRow.start_date ?? null,
+        end_date: tripRow.end_date ?? null,
+      }
     }
   }
 
@@ -254,7 +263,7 @@ export default async function DashboardPage() {
   const tripWeatherResults: LocationWeather[] = []
   if (upcomingTripRows && upcomingTripRows.length > 0) {
     const fetches = (upcomingTripRows as any[]).map(async (t: any) => {
-      const w = await getWeatherByCoords(t.destination_lat, t.destination_lon, t.destination ?? t.name, 7)
+      const w = await getWeatherByCoords(t.destination_lat, t.destination_lon, t.destination ?? t.name, 16)
       if (w) tripWeatherResults.push({ ...w, locationName: `✈ ${t.name}${w.locationName !== t.name ? ` — ${w.locationName}` : ''}` })
     })
     await Promise.all(fetches)
