@@ -24,8 +24,10 @@ CREATE POLICY "owner_all" ON property_policies
 -- Shared-property users can read (mirrors the pattern used by other property tables)
 CREATE POLICY "shared_read" ON property_policies
   FOR SELECT USING (
-    property_id IN (
-      SELECT property_id FROM property_shares WHERE shared_with_user_id = auth.uid()
+    EXISTS (
+      SELECT 1 FROM property_shares
+      WHERE property_id = property_policies.property_id
+        AND shared_with_id = auth.uid()
     )
   );
 
