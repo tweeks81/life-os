@@ -7,7 +7,7 @@ import { PropertyAsset, AssetType, ASSET_TYPE_LABELS, ASSET_TYPE_ICONS } from '@
 const ASSET_TYPES: AssetType[] = [
   'fridge', 'freezer', 'dishwasher', 'washing_machine', 'tumble_dryer',
   'boiler', 'ev_charger', 'tv', 'speaker', 'oven', 'hob', 'grill',
-  'microwave', 'slow_cooker', 'game_system', 'other',
+  'microwave', 'slow_cooker', 'game_system', 'furniture', 'other',
 ]
 
 export default function AssetForm({
@@ -33,6 +33,8 @@ export default function AssetForm({
   const [make, setMake] = useState(asset?.make ?? '')
   const [model, setModel] = useState(asset?.model ?? '')
   const [purchaseDate, setPurchaseDate] = useState(asset?.purchase_date ?? '')
+  const [purchasePrice, setPurchasePrice] = useState(asset?.purchase_price?.toString() ?? '')
+  const [purchasedFrom, setPurchasedFrom] = useState(asset?.purchased_from ?? '')
   const [serialNumber, setSerialNumber] = useState(asset?.serial_number ?? '')
 
   const handleSave = async () => {
@@ -47,6 +49,8 @@ export default function AssetForm({
       make: make.trim() || null,
       model: model.trim() || null,
       purchase_date: purchaseDate || null,
+      purchase_price: purchasePrice ? parseFloat(purchasePrice) : null,
+      purchased_from: purchasedFrom.trim() || null,
       serial_number: serialNumber.trim() || null,
     }
     const { error: err } = isEdit
@@ -114,6 +118,17 @@ export default function AssetForm({
             <div className="af-field">
               <label className="af-label">Purchase / install date</label>
               <input type="date" className="af-input" value={purchaseDate} onChange={e => setPurchaseDate(e.target.value)} />
+            </div>
+            <div className="af-field">
+              <label className="af-label">Purchase price (£)</label>
+              <input type="number" className="af-input" value={purchasePrice} onChange={e => setPurchasePrice(e.target.value)} placeholder="e.g. 299" min="0" step="0.01" />
+            </div>
+          </div>
+
+          <div className="af-row">
+            <div className="af-field">
+              <label className="af-label">Purchased from</label>
+              <input className="af-input" value={purchasedFrom} onChange={e => setPurchasedFrom(e.target.value)} placeholder="e.g. John Lewis, IKEA" />
             </div>
             <div className="af-field">
               <label className="af-label">Serial number</label>

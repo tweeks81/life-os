@@ -154,7 +154,7 @@ export interface PropertyCouncilTax {
 export type AssetType =
   | 'fridge' | 'freezer' | 'dishwasher' | 'washing_machine' | 'tumble_dryer'
   | 'boiler' | 'ev_charger' | 'tv' | 'speaker' | 'oven' | 'hob' | 'grill'
-  | 'microwave' | 'slow_cooker' | 'game_system' | 'other'
+  | 'microwave' | 'slow_cooker' | 'game_system' | 'furniture' | 'other'
 
 export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   fridge: 'Fridge',
@@ -172,6 +172,7 @@ export const ASSET_TYPE_LABELS: Record<AssetType, string> = {
   microwave: 'Microwave',
   slow_cooker: 'Slow Cooker',
   game_system: 'Game System',
+  furniture: 'Furniture',
   other: 'Other',
 }
 
@@ -191,6 +192,7 @@ export const ASSET_TYPE_ICONS: Record<AssetType, string> = {
   microwave: '📡',
   slow_cooker: '🥘',
   game_system: '🎮',
+  furniture: '🛋️',
   other: '📦',
 }
 
@@ -203,6 +205,8 @@ export interface PropertyAsset {
   make: string | null
   model: string | null
   purchase_date: string | null
+  purchase_price: number | null
+  purchased_from: string | null
   serial_number: string | null
   created_at: string
   updated_at: string

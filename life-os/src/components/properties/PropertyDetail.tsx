@@ -122,6 +122,8 @@ export default function PropertyDetail({
   const [assetNotes, setAssetNotes] = useState<Record<string, AssetNote[]>>({})
   const [newNoteText, setNewNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
+  const [editingNoteId, setEditingNoteId] = useState<string | null>(null)
+  const [editingNoteText, setEditingNoteText] = useState('')
 
   const [policies, setPolicies] = useState<PropertyPolicy[]>([])
   const [showPolicyForm, setShowPolicyForm] = useState(false)
@@ -286,6 +288,14 @@ export default function PropertyDetail({
   const handleDeleteNote = async (noteId: string, assetId: string) => {
     if (!confirm('Delete this note?')) return
     await (supabase as any).from('property_asset_notes').delete().eq('id', noteId)
+    loadAssetNotes(assetId)
+  }
+
+  const handleUpdateNote = async (noteId: string, assetId: string) => {
+    if (!editingNoteText.trim()) return
+    await (supabase as any).from('property_asset_notes').update({ note: editingNoteText.trim() }).eq('id', noteId)
+    setEditingNoteId(null)
+    setEditingNoteText('')
     loadAssetNotes(assetId)
   }
 
@@ -755,6 +765,18 @@ export default function PropertyDetail({
                                 <span className="asset-field-value">{fmtDate(a.purchase_date)}</span>
                               </div>
                             )}
+                            {a.purchase_price != null && (
+                              <div className="asset-field">
+                                <span className="asset-field-label">Purchase price</span>
+                                <span className="asset-field-value">£{a.purchase_price.toLocaleString('en-GB', { minimumFractionDigits: 0 })}</span>
+                              </div>
+                            )}
+                            {a.purchased_from && (
+                              <div className="asset-field">
+                                <span className="asset-field-label">Purchased from</span>
+                                <span className="asset-field-value">{a.purchased_from}</span>
+                              </div>
+                            )}
                             {a.serial_number && (
                               <div className="asset-field">
                                 <span className="asset-field-label">Serial number</span>
@@ -765,7 +787,7 @@ export default function PropertyDetail({
 
                           {/* Notes */}
                           <div className="asset-notes-section">
-                            <div className="asset-notes-heading">Maintenance notes</div>
+                            <div className="asset-notes-heading">Notes</div>
 
                             {/* Add note form — owners only */}
                             {isOwner && (
@@ -774,7 +796,7 @@ export default function PropertyDetail({
                                   className="asset-note-input"
                                   value={newNoteText}
                                   onChange={e => setNewNoteText(e.target.value)}
-                                  placeholder="Add a maintenance note, service record, repair…"
+                                  placeholder="Add a note, service record, repair…"
                                   rows={2}
                                 />
                                 <button
@@ -794,13 +816,34 @@ export default function PropertyDetail({
                               <div className="asset-notes-list">
                                 {notes.map(n => (
                                   <div key={n.id} className="asset-note">
-                                    <div className="asset-note-header">
-                                      <span className="asset-note-date">{fmtDateTime(n.created_at)}</span>
-                                      {isOwner && (
-                                        <button className="asset-note-delete" onClick={() => handleDeleteNote(n.id, a.id)}>✕</button>
-                                      )}
-                                    </div>
-                                    <p className="asset-note-text">{n.note}</p>
+                                    {editingNoteId === n.id ? (
+                                      <div className="asset-note-edit-form">
+                                        <textarea
+                                          className="asset-note-input"
+                                          value={editingNoteText}
+                                          onChange={e => setEditingNoteText(e.target.value)}
+                                          rows={2}
+                                          autoFocus
+                                        />
+                                        <div className="asset-note-edit-actions">
+                                          <button className="asset-note-save-btn" onClick={() => handleUpdateNote(n.id, a.id)} disabled={!editingNoteText.trim()}>Save</button>
+                                          <button className="asset-note-cancel-btn" onClick={() => { setEditingNoteId(null); setEditingNoteText('') }}>Cancel</button>
+                                        </div>
+                                      </div>
+                                    ) : (
+                                      <>
+                                        <div className="asset-note-header">
+                                          <span className="asset-note-date">{fmtDateTime(n.created_at)}</span>
+                                          {isOwner && (
+                                            <div className="asset-note-actions">
+                                              <button className="asset-note-edit" onClick={() => { setEditingNoteId(n.id); setEditingNoteText(n.note) }}>Edit</button>
+                                              <button className="asset-note-delete" onClick={() => handleDeleteNote(n.id, a.id)}>✕</button>
+                                            </div>
+                                          )}
+                                        </div>
+                                        <p className="asset-note-text">{n.note}</p>
+                                      </>
+                                    )}
                                   </div>
                                 ))}
                               </div>
@@ -1217,9 +1260,15 @@ export default function PropertyDetail({
         .asset-note { background: white; border: 1px solid var(--border-light); border-radius: 8px; padding: 0.625rem 0.75rem; display: flex; flex-direction: column; gap: 0.25rem; }
         .asset-note-header { display: flex; align-items: center; justify-content: space-between; }
         .asset-note-date { font-size: 0.7rem; font-weight: 600; color: var(--text-muted); }
+        .asset-note-actions { display: flex; gap: 0.25rem; align-items: center; }
+        .asset-note-edit { background: none; border: none; cursor: pointer; font-size: 0.7rem; color: var(--text-muted); padding: 0.1rem 0.35rem; border-radius: 4px; transition: all 0.13s; font-family: var(--font-body); }
+        .asset-note-edit:hover { color: var(--deep-brown); background: var(--cream-dark); }
         .asset-note-delete { background: none; border: none; cursor: pointer; font-size: 0.7rem; color: var(--text-muted); padding: 0.1rem 0.25rem; border-radius: 4px; transition: all 0.13s; }
         .asset-note-delete:hover { color: #dc2626; background: #fef2f2; }
         .asset-note-text { font-size: 0.8125rem; color: var(--text-primary); line-height: 1.55; white-space: pre-wrap; }
+        .asset-note-edit-form { display: flex; flex-direction: column; gap: 0.375rem; }
+        .asset-note-edit-actions { display: flex; gap: 0.375rem; }
+        .asset-note-cancel-btn { padding: 0.25rem 0.625rem; border-radius: 6px; border: 1px solid var(--border); background: white; font-size: 0.75rem; font-weight: 500; color: var(--text-muted); cursor: pointer; font-family: var(--font-body); }
         /* ── Policies ── */
         .pol-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; padding: 0.875rem 1rem; border: 1px solid var(--border-light); border-radius: 10px; margin-bottom: 0.625rem; background: white; }
         .pol-card-left { display: flex; gap: 0.75rem; flex: 1; min-width: 0; }
