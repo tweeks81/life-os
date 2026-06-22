@@ -5,11 +5,12 @@ import Image from 'next/image'
 import { createClient } from '@/lib/supabase/client'
 import {
   Property, PropertyPurchase, PropertyMortgage, PropertyUtility, PropertyCouncilTax,
-  PropertyAsset, AssetNote, AssetType,
+  PropertyAsset, AssetNote, AssetType, PropertyPolicy,
   UtilityType, MortgageProductType,
   PROPERTY_TYPE_LABELS, PROPERTY_TYPE_ICONS, MORTGAGE_PRODUCT_LABELS,
   UTILITY_TYPE_LABELS, UTILITY_TYPE_ICONS,
   ASSET_TYPE_LABELS, ASSET_TYPE_ICONS,
+  POLICY_TYPE_LABELS, POLICY_TYPE_ICONS,
   formatAddress,
 } from '@/types/properties'
 import SharePanel, { ShareRecord } from '@/components/tasks/SharePanel'
@@ -18,16 +19,33 @@ import MortgageForm from './MortgageForm'
 import UtilityForm from './UtilityForm'
 import CouncilTaxForm from './CouncilTaxForm'
 import AssetForm from './AssetForm'
+import PolicyForm from './PolicyForm'
 
-type Tab = 'info' | 'mortgage' | 'utilities' | 'council-tax' | 'assets'
+type Tab = 'info' | 'mortgage' | 'utilities' | 'council-tax' | 'assets' | 'policies'
 
 const TABS: { id: Tab; label: string; icon: string }[] = [
-  { id: 'info', label: 'Info', icon: '🏠' },
-  { id: 'mortgage', label: 'Mortgage', icon: '🏦' },
-  { id: 'utilities', label: 'Utilities', icon: '⚡' },
+  { id: 'info',        label: 'Info',        icon: '🏠' },
+  { id: 'mortgage',    label: 'Mortgage',    icon: '🏦' },
+  { id: 'utilities',   label: 'Utilities',   icon: '⚡' },
   { id: 'council-tax', label: 'Council Tax', icon: '🏛' },
-  { id: 'assets', label: 'Assets', icon: '📦' },
+  { id: 'assets',      label: 'Assets',      icon: '📦' },
+  { id: 'policies',    label: 'Policies',    icon: '🛡️' },
 ]
+
+function isPolicyExpiringSoon(endDate: string | null, days = 30): boolean {
+  if (!endDate) return false
+  const exp = new Date(endDate + 'T00:00:00')
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  const diff = Math.ceil((exp.getTime() - now.getTime()) / 86400000)
+  return diff >= 0 && diff <= days
+}
+
+function isPolicyExpired(endDate: string | null): boolean {
+  if (!endDate) return false
+  const exp = new Date(endDate + 'T00:00:00')
+  const now = new Date(); now.setHours(0, 0, 0, 0)
+  return exp < now
+}
 
 function isMortgageExpired(endDate: string | null): boolean {
   if (!endDate) return false
@@ -105,6 +123,11 @@ export default function PropertyDetail({
   const [newNoteText, setNewNoteText] = useState('')
   const [savingNote, setSavingNote] = useState(false)
 
+  const [policies, setPolicies] = useState<PropertyPolicy[]>([])
+  const [showPolicyForm, setShowPolicyForm] = useState(false)
+  const [editingPolicy, setEditingPolicy] = useState<PropertyPolicy | null>(null)
+  const [deletingPolicyId, setDeletingPolicyId] = useState<string | null>(null)
+
   const loadMortgages = useCallback(async () => {
     const { data } = await (supabase as any)
       .from('property_mortgages')
@@ -152,20 +175,32 @@ export default function PropertyDetail({
     setAssetNotes(prev => ({ ...prev, [assetId]: data ?? [] }))
   }, [supabase])
 
+  const loadPolicies = useCallback(async () => {
+    const { data } = await (supabase as any)
+      .from('property_policies')
+      .select('*')
+      .eq('property_id', property.id)
+      .order('policy_type', { ascending: true })
+      .order('end_date', { ascending: true, nullsFirst: true })
+    setPolicies(data ?? [])
+  }, [supabase, property.id])
+
   // Load everything on mount
   useEffect(() => {
     loadMortgages()
     loadUtilities()
     loadCouncilTax()
     loadAssets()
-  }, [loadMortgages, loadUtilities, loadCouncilTax, loadAssets])
+    loadPolicies()
+  }, [loadMortgages, loadUtilities, loadCouncilTax, loadAssets, loadPolicies])
 
   useEffect(() => {
     if (tab === 'mortgage') loadMortgages()
     if (tab === 'utilities') loadUtilities()
     if (tab === 'council-tax') loadCouncilTax()
     if (tab === 'assets') loadAssets()
-  }, [tab, loadMortgages, loadUtilities, loadCouncilTax, loadAssets])
+    if (tab === 'policies') loadPolicies()
+  }, [tab, loadMortgages, loadUtilities, loadCouncilTax, loadAssets, loadPolicies])
 
   // Reset when a different property is selected
   useEffect(() => {
@@ -176,6 +211,7 @@ export default function PropertyDetail({
     setAssets([])
     setAssetNotes({})
     setExpandedAssetId(null)
+    setPolicies([])
   }, [property.id])
 
   const handleDelete = () => {
@@ -213,6 +249,14 @@ export default function PropertyDetail({
     setDeletingAssetId(null)
     if (expandedAssetId === id) setExpandedAssetId(null)
     loadAssets()
+  }
+
+  const handleDeletePolicy = async (id: string) => {
+    if (!confirm('Delete this policy record?')) return
+    setDeletingPolicyId(id)
+    await (supabase as any).from('property_policies').delete().eq('id', id)
+    setDeletingPolicyId(null)
+    loadPolicies()
   }
 
   const handleExpandAsset = (id: string) => {
@@ -456,6 +500,33 @@ export default function PropertyDetail({
                       </span>
                     </div>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* Policies snapshot */}
+            {policies.length > 0 && (
+              <div className="detail-section">
+                <div className="section-heading">Policies</div>
+                <div className="pol-snapshot">
+                  {policies.map(p => {
+                    const expiring = isPolicyExpiringSoon(p.end_date) && !isPolicyExpired(p.end_date)
+                    const expired = isPolicyExpired(p.end_date)
+                    return (
+                      <div key={p.id} className="pol-snap-row">
+                        <span className="pol-snap-icon">{POLICY_TYPE_ICONS[p.policy_type] ?? '📋'}</span>
+                        <div className="pol-snap-body">
+                          <span className="pol-snap-type">{POLICY_TYPE_LABELS[p.policy_type] ?? p.policy_type}</span>
+                          <span className="pol-snap-insurer">{p.insurer}</span>
+                        </div>
+                        {p.end_date && (
+                          <span className={`pol-snap-date ${expired ? 'pol-expired' : expiring ? 'pol-expiring' : ''}`}>
+                            {expired ? '⚠ Expired' : expiring ? `⚠ Renews ${fmtDate(p.end_date)}` : `Renews ${fmtDate(p.end_date)}`}
+                          </span>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
             )}
@@ -744,6 +815,50 @@ export default function PropertyDetail({
             )}
           </div>
         )}
+
+        {/* ── POLICIES TAB ── */}
+        {tab === 'policies' && (
+          <div className="tab-content">
+            {isOwner && (
+              <button className="add-record-btn" onClick={() => { setEditingPolicy(null); setShowPolicyForm(true) }}>
+                + Add policy
+              </button>
+            )}
+            {policies.length === 0 ? (
+              <div className="empty-tab">No policies recorded yet.</div>
+            ) : policies.map(p => {
+              const expiring = isPolicyExpiringSoon(p.end_date) && !isPolicyExpired(p.end_date)
+              const expired = isPolicyExpired(p.end_date)
+              return (
+                <div key={p.id} className="pol-card">
+                  <div className="pol-card-left">
+                    <span className="pol-card-icon">{POLICY_TYPE_ICONS[p.policy_type] ?? '📋'}</span>
+                    <div className="pol-card-body">
+                      <span className="pol-card-type">{POLICY_TYPE_LABELS[p.policy_type] ?? p.policy_type}</span>
+                      <span className="pol-card-insurer">{p.insurer}</span>
+                      {p.policy_number && <span className="pol-card-meta">Policy: {p.policy_number}</span>}
+                      {p.premium_annual != null && (
+                        <span className="pol-card-meta">£{p.premium_annual.toLocaleString('en-GB', { minimumFractionDigits: 0 })} / year</span>
+                      )}
+                      {p.end_date && (
+                        <span className={`pol-card-date ${expired ? 'pol-expired' : expiring ? 'pol-expiring' : ''}`}>
+                          {expired ? '⚠ Expired' : expiring ? `⚠ Renews ${fmtDate(p.end_date)}` : `Renews ${fmtDate(p.end_date)}`}
+                        </span>
+                      )}
+                      {p.notes && <span className="pol-card-notes">{p.notes}</span>}
+                    </div>
+                  </div>
+                  {isOwner && (
+                    <div className="pol-card-actions">
+                      <button className="mort-edit-btn" onClick={() => { setEditingPolicy(p); setShowPolicyForm(true) }} disabled={deletingPolicyId === p.id}>Edit</button>
+                      <button className="mort-delete-btn" onClick={() => handleDeletePolicy(p.id)} disabled={deletingPolicyId === p.id}>🗑</button>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
       </div>
 
       {/* Mortgage form modal */}
@@ -784,6 +899,16 @@ export default function PropertyDetail({
           asset={editingAsset}
           onSaved={() => { setShowAssetForm(false); setEditingAsset(null); loadAssets() }}
           onClose={() => { setShowAssetForm(false); setEditingAsset(null) }}
+        />
+      )}
+
+      {showPolicyForm && (
+        <PolicyForm
+          propertyId={property.id}
+          userId={userId}
+          policy={editingPolicy}
+          onSaved={() => { setShowPolicyForm(false); setEditingPolicy(null); loadPolicies() }}
+          onClose={() => { setShowPolicyForm(false); setEditingPolicy(null) }}
         />
       )}
 
@@ -1095,6 +1220,27 @@ export default function PropertyDetail({
         .asset-note-delete { background: none; border: none; cursor: pointer; font-size: 0.7rem; color: var(--text-muted); padding: 0.1rem 0.25rem; border-radius: 4px; transition: all 0.13s; }
         .asset-note-delete:hover { color: #dc2626; background: #fef2f2; }
         .asset-note-text { font-size: 0.8125rem; color: var(--text-primary); line-height: 1.55; white-space: pre-wrap; }
+        /* ── Policies ── */
+        .pol-card { display: flex; align-items: flex-start; justify-content: space-between; gap: 0.75rem; padding: 0.875rem 1rem; border: 1px solid var(--border-light); border-radius: 10px; margin-bottom: 0.625rem; background: white; }
+        .pol-card-left { display: flex; gap: 0.75rem; flex: 1; min-width: 0; }
+        .pol-card-icon { font-size: 1.375rem; flex-shrink: 0; line-height: 1; margin-top: 0.1rem; }
+        .pol-card-body { display: flex; flex-direction: column; gap: 0.2rem; min-width: 0; }
+        .pol-card-type { font-size: 0.875rem; font-weight: 600; color: var(--text-primary); }
+        .pol-card-insurer { font-size: 0.8125rem; color: var(--text-muted); }
+        .pol-card-meta { font-size: 0.775rem; color: var(--text-muted); }
+        .pol-card-date { font-size: 0.775rem; color: var(--text-muted); }
+        .pol-card-notes { font-size: 0.775rem; color: var(--text-muted); font-style: italic; white-space: pre-wrap; margin-top: 0.1rem; }
+        .pol-card-actions { display: flex; gap: 0.375rem; flex-shrink: 0; align-items: center; }
+        .pol-expiring { color: #d97706 !important; font-weight: 600; }
+        .pol-expired  { color: #dc2626 !important; font-weight: 600; }
+        /* Info-tab policy snapshot */
+        .pol-snapshot { display: flex; flex-direction: column; gap: 0.5rem; }
+        .pol-snap-row { display: flex; align-items: center; gap: 0.625rem; }
+        .pol-snap-icon { font-size: 1.1rem; flex-shrink: 0; }
+        .pol-snap-body { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+        .pol-snap-type { font-size: 0.8125rem; font-weight: 600; color: var(--text-primary); }
+        .pol-snap-insurer { font-size: 0.775rem; color: var(--text-muted); }
+        .pol-snap-date { font-size: 0.75rem; color: var(--text-muted); flex-shrink: 0; }
       `}</style>
     </div>
   )

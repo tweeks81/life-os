@@ -77,6 +77,7 @@ export default function DashboardClient({
   totalProjects,
   vehicleWarnings,
   mortgageWarnings,
+  policyWarnings,
   nextTrip,
   weatherLocations,
 }: {
@@ -89,6 +90,7 @@ export default function DashboardClient({
   totalProjects: number
   vehicleWarnings: { id: string; name: string; reg_number: string | null; criticalIssues: string[]; warningIssues: string[] }[]
   mortgageWarnings: { propertyId: string; propertyName: string; lender: string; endDate: string; daysUntil: number }[]
+  policyWarnings: { propertyId: string; propertyName: string; policyType: string; insurer: string; endDate: string; daysUntil: number }[]
   nextTrip: { name: string; daysUntil: number; destination: string | null } | null
   weatherLocations: LocationWeather[]
 }) {
@@ -195,6 +197,32 @@ export default function DashboardClient({
                     <span className="mortgage-alert-detail">
                       {m.lender} — renews {expLabel}
                       <span className={urgent ? 'mort-days-urgent' : 'mort-days-soon'}> ({m.daysUntil}d)</span>
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {policyWarnings.length > 0 && (
+          <div className="policy-alert">
+            <div className="policy-alert-header">
+              <span className="policy-alert-icon">🛡️</span>
+              <strong>Insurance renewal{policyWarnings.length > 1 ? 's' : ''} coming up</strong>
+              <a href="/properties" className="policy-alert-link">View properties →</a>
+            </div>
+            <div className="policy-alert-list">
+              {policyWarnings.map(p => {
+                const exp = new Date(p.endDate + 'T00:00:00')
+                const expLabel = exp.toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })
+                const urgent = p.daysUntil <= 7
+                return (
+                  <div key={`${p.propertyId}-${p.endDate}-${p.policyType}`} className="policy-alert-row">
+                    <span className="policy-alert-name">{p.propertyName}</span>
+                    <span className="policy-alert-detail">
+                      {p.insurer} — renews {expLabel}
+                      <span className={urgent ? 'pol-days-urgent' : 'pol-days-soon'}> ({p.daysUntil}d)</span>
                     </span>
                   </div>
                 )
@@ -352,6 +380,19 @@ export default function DashboardClient({
         .mortgage-alert-detail { font-size: 0.8375rem; color: #92400e; }
         .mort-days-soon { font-weight: 700; color: #b45309; }
         .mort-days-urgent { font-weight: 700; color: #dc2626; }
+        .policy-alert { background: #f0fdf4; border: 1.5px solid #86efac; border-radius: 12px; padding: 0.875rem 1.25rem; margin-bottom: 1.5rem; animation: fadeUp 0.4s ease; display: flex; flex-direction: column; gap: 0.625rem; }
+        .policy-alert-header { display: flex; align-items: center; gap: 0.5rem; }
+        .policy-alert-icon { font-size: 1rem; flex-shrink: 0; }
+        .policy-alert-header strong { font-size: 0.9rem; font-weight: 700; color: #14532d; flex: 1; }
+        .policy-alert-link { font-size: 0.8125rem; font-weight: 600; color: #16a34a; text-decoration: none; padding: 0.25rem 0.625rem; border: 1.5px solid #86efac; border-radius: 6px; transition: all 0.15s; white-space: nowrap; flex-shrink: 0; }
+        .policy-alert-link:hover { background: #16a34a; color: white; border-color: #16a34a; }
+        .policy-alert-list { display: flex; flex-direction: column; gap: 0; }
+        .policy-alert-row { display: flex; align-items: baseline; gap: 0.5rem; font-size: 0.875rem; padding: 0.375rem 0; border-top: 1px solid #bbf7d0; flex-wrap: wrap; }
+        .policy-alert-row:first-child { border-top: none; }
+        .policy-alert-name { font-weight: 700; color: #14532d; white-space: nowrap; }
+        .policy-alert-detail { font-size: 0.8375rem; color: #166534; }
+        .pol-days-soon { font-weight: 700; color: #16a34a; }
+        .pol-days-urgent { font-weight: 700; color: #dc2626; }
         .next-trip-card { display: flex; align-items: center; gap: 1rem; background: linear-gradient(135deg, #1a3a5c 0%, #2d5a8e 100%); border-radius: 14px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; text-decoration: none; color: inherit; transition: all 0.2s; box-shadow: 0 2px 12px rgba(26,58,92,0.18); }
         .next-trip-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,58,92,0.28); }
         .next-trip-plane { font-size: 1.75rem; flex-shrink: 0; }

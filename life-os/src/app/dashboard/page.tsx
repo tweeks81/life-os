@@ -59,6 +59,7 @@ export default async function DashboardPage() {
     { data: warnMot },
     { data: serviceRows },
     { data: expiringMortgageRows },
+    { data: expiringPolicyRows },
   ] = await Promise.all([
     supabase.from('profiles').select('*').eq('id', user.id).single(),
     (supabase as any).from('trip_flights').select('trip_id, depart_datetime, arrive_airport').gte('depart_datetime', new Date().toISOString()).order('depart_datetime', { ascending: true }).limit(1).maybeSingle(),
@@ -83,6 +84,7 @@ export default async function DashboardPage() {
     (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', todayStr).lte('expiry_date', soonStr),
     (supabase as any).from('vehicle_services').select('vehicle_id, service_date').order('service_date', { ascending: false }),
     (supabase as any).from('property_mortgages').select('id, property_id, lender, end_date').gte('end_date', todayStr).lte('end_date', ninetyDaysStr).order('end_date', { ascending: true }),
+    (supabase as any).from('property_policies').select('id, property_id, policy_type, insurer, end_date').gte('end_date', todayStr).lte('end_date', soonStr).order('end_date', { ascending: true }),
   ])
 
   const linkedIds = (linkedRaw ?? []).map((l: any) => l.linked_user_id)
@@ -197,6 +199,27 @@ export default async function DashboardPage() {
     }
   }
 
+  // Build policy warning data — attach property name
+  const policyWarnings: { propertyId: string; propertyName: string; policyType: string; insurer: string; endDate: string; daysUntil: number }[] = []
+  if (expiringPolicyRows && expiringPolicyRows.length > 0) {
+    const polPropIds = Array.from(new Set((expiringPolicyRows as any[]).map((r: any) => r.property_id)))
+    const { data: polPropNames } = await supabase.from('properties').select('id, name').in('id', polPropIds)
+    const polPropMap: Record<string, string> = {}
+    for (const p of polPropNames ?? []) polPropMap[p.id] = p.name
+    for (const r of expiringPolicyRows as any[]) {
+      const exp = new Date(r.end_date + 'T00:00:00')
+      const daysUntil = Math.ceil((exp.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+      policyWarnings.push({
+        propertyId: r.property_id,
+        propertyName: polPropMap[r.property_id] ?? 'Property',
+        policyType: r.policy_type,
+        insurer: r.insurer,
+        endDate: r.end_date,
+        daysUntil,
+      })
+    }
+  }
+
   const firstName = profile?.full_name?.split(' ')[0] ?? 'there'
 
   // ── Weather ──────────────────────────────────────────────────────
@@ -286,6 +309,7 @@ export default async function DashboardPage() {
       totalProjects={(projects ?? []).length}
       vehicleWarnings={vehicleWarnings}
       mortgageWarnings={mortgageWarnings}
+      policyWarnings={policyWarnings}
     />
   )
 }

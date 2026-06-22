@@ -217,6 +217,40 @@ export interface AssetNote {
   created_at: string
 }
 
+export const POLICY_TYPE_LABELS: Record<string, string> = {
+  home_insurance:     'Home Insurance',
+  contents_insurance: 'Contents Insurance',
+  landlord_insurance: 'Landlord Insurance',
+  buildings_insurance:'Buildings Insurance',
+  life_insurance:     'Life Insurance',
+  other:              'Other',
+}
+
+export const POLICY_TYPE_ICONS: Record<string, string> = {
+  home_insurance:     '🏠',
+  contents_insurance: '📦',
+  landlord_insurance: '🔑',
+  buildings_insurance:'🏗️',
+  life_insurance:     '❤️',
+  other:              '📋',
+}
+
+export interface PropertyPolicy {
+  id: string
+  property_id: string
+  user_id: string
+  policy_type: string
+  insurer: string
+  policy_number: string | null
+  premium_annual: number | null
+  start_date: string | null
+  end_date: string | null
+  notes: string | null
+  sort_order: number | null
+  created_at: string
+  updated_at: string
+}
+
 export function formatAddress(p: Property): string {
   return [p.address_line1, p.address_line2, p.address_town, p.address_city, p.address_postcode]
     .filter(Boolean)
