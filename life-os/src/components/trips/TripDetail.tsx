@@ -192,7 +192,6 @@ export default function TripDetail({
     .ref { display: inline-block; font-size: 11px; font-weight: 600; background: #fff4f0; color: #c44b20; border-radius: 3px; padding: 1px 5px; letter-spacing: 0.04em; }
     .ref-row { font-size: 12px; color: #444; }
     .notes { font-size: 12px; color: #666; background: #f9f7f4; border-radius: 4px; padding: 5px 8px; margin-top: 2px; white-space: pre-wrap; }
-    .footer { margin-top: 32px; font-size: 11px; color: #aaa; text-align: center; border-top: 1px solid #e5e5e5; padding-top: 12px; }
     @media print { body { padding: 16px; } .section-title:first-of-type { border-top: none; } }
   </style>
 </head>
@@ -204,7 +203,6 @@ export default function TripDetail({
     ${trip.description ? `<br>${trip.description}` : ''}
   </div>
   ${itinerary.length > 0 ? `<div class="section-title">Itinerary</div>${cards}` : ''}
-  <div class="footer">Generated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
   <script>window.onload = () => window.print()</script>
 </body>
 </html>`

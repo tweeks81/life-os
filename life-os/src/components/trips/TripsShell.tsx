@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { Trip, TripFlight, TripParking, TripTaxi, TripAccommodation, TripShare, LinkedContactForSharing, TripTask } from '@/types/trips'
 import TripsList from './TripsList'
@@ -92,6 +92,14 @@ export default function TripsShell({
     setSelectedTrip(saved)
     await Promise.all([loadTripItems(saved.id), loadShares(saved.id), loadTripTasks(saved.id)])
   }, [refreshTrips, loadTripItems, loadShares, loadTripTasks])
+
+  useEffect(() => {
+    if (trips.length === 0 || selectedTrip) return
+    const todayStr = new Date().toISOString().split('T')[0]
+    const next = trips.find(t => !t.completed && t.start_date && t.start_date >= todayStr)
+      ?? trips.find(t => !t.completed)
+    if (next) handleSelectTrip(next)
+  }, [trips]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleToggleComplete = useCallback(async (trip: Trip) => {
     await (supabase as any).from('trips').update({ completed: !trip.completed }).eq('id', trip.id)
