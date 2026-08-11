@@ -173,12 +173,6 @@ export default function TripDetail({
       return ''
     }).join('')
 
-    const tasksHtml = tripTasks.length > 0 ? `
-      <div class="section-title">To-do</div>
-      <ul class="task-list">
-        ${tripTasks.map(t => `<li class="${t.status === 'done' ? 'done' : ''}">${t.title}${t.due_date ? ` <span class="task-due">(due ${fmtDate(t.due_date)})</span>` : ''}</li>`).join('')}
-      </ul>` : ''
-
     const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -198,12 +192,6 @@ export default function TripDetail({
     .ref { display: inline-block; font-size: 11px; font-weight: 600; background: #fff4f0; color: #c44b20; border-radius: 3px; padding: 1px 5px; letter-spacing: 0.04em; }
     .ref-row { font-size: 12px; color: #444; }
     .notes { font-size: 12px; color: #666; background: #f9f7f4; border-radius: 4px; padding: 5px 8px; margin-top: 2px; white-space: pre-wrap; }
-    .task-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
-    .task-list li { font-size: 13px; padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 5px; display: flex; align-items: center; gap: 6px; }
-    .task-list li::before { content: '○'; color: #aaa; font-size: 11px; flex-shrink: 0; }
-    .task-list li.done { color: #999; text-decoration: line-through; }
-    .task-list li.done::before { content: '✓'; color: #16a34a; }
-    .task-due { font-size: 11px; color: #888; }
     .footer { margin-top: 32px; font-size: 11px; color: #aaa; text-align: center; border-top: 1px solid #e5e5e5; padding-top: 12px; }
     @media print { body { padding: 16px; } .section-title:first-of-type { border-top: none; } }
   </style>
@@ -216,7 +204,6 @@ export default function TripDetail({
     ${trip.description ? `<br>${trip.description}` : ''}
   </div>
   ${itinerary.length > 0 ? `<div class="section-title">Itinerary</div>${cards}` : ''}
-  ${tasksHtml}
   <div class="footer">Generated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
   <script>window.onload = () => window.print()</script>
 </body>
