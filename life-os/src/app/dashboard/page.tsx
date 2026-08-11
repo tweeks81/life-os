@@ -288,7 +288,7 @@ export default async function DashboardPage() {
   const tripWeatherResults: LocationWeather[] = []
   if (upcomingTripRows && upcomingTripRows.length > 0) {
     const fetches = (upcomingTripRows as any[]).map(async (t: any) => {
-      const w = await getWeatherByCoords(t.destination_lat, t.destination_lon, t.destination ?? t.name, 7)
+      const w = await getWeatherByCoords(t.destination_lat, t.destination_lon, t.destination ?? t.name, 10)
       if (w) tripWeatherResults.push({ ...w, locationName: `✈ ${t.name}${w.locationName !== t.name ? ` — ${w.locationName}` : ''}` })
     })
     await Promise.all(fetches)

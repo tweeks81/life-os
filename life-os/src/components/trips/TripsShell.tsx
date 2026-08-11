@@ -33,7 +33,7 @@ export default function TripsShell({
   const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
 
   const refreshTrips = useCallback(async () => {
-    const { data } = await (supabase as any).from('trips').select('*').order('created_at', { ascending: false })
+    const { data } = await (supabase as any).from('trips').select('*').order('start_date', { ascending: true, nullsFirst: false }).order('created_at', { ascending: true })
     if (data) setTrips(data as Trip[])
   }, [supabase])
 

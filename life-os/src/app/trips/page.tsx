@@ -12,7 +12,8 @@ export default async function TripsPage() {
     (supabase as any)
       .from('trips')
       .select('*')
-      .order('created_at', { ascending: false }),
+      .order('start_date', { ascending: true, nullsFirst: false })
+      .order('created_at', { ascending: true }),
     supabase
       .from('profiles')
       .select('full_name, avatar_url')

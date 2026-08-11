@@ -109,10 +109,122 @@ export default function TripDetail({
   const [showSharePanel, setShowSharePanel] = useState(false)
   const [confirmDeleteTrip, setConfirmDeleteTrip] = useState(false)
   const [confirmDeleteItem, setConfirmDeleteItem] = useState<{ kind: string; id: string } | null>(null)
+  const [tasksOpen, setTasksOpen] = useState(false)
 
   useEffect(() => {
     setItinerary(buildItinerary(flights, parking, taxis, accommodations))
   }, [flights, parking, taxis, accommodations])
+
+  const handleSavePDF = () => {
+    const fmt = (dt: string | null | undefined) => dt ? new Date(dt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
+    const fmtDate = (d: string | null | undefined) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—'
+
+    const cards = itinerary.map(item => {
+      if (item.kind === 'flight') {
+        const f = item.data as TripFlight
+        return `<div class="card">
+          <div class="card-icon">✈️</div>
+          <div class="card-body">
+            <div class="card-title">${f.depart_airport} → ${f.arrive_airport}${f.flight_number ? ` <span class="ref">${f.flight_number}</span>` : ''}</div>
+            <div class="detail">Depart: ${fmt(f.depart_datetime)}${f.depart_terminal ? `, Terminal ${f.depart_terminal}` : ''}</div>
+            <div class="detail">Arrive: ${fmt(f.arrive_datetime)}${f.arrive_terminal ? `, Terminal ${f.arrive_terminal}` : ''}</div>
+            ${f.booking_reference ? `<div class="ref-row">Booking ref: <span class="ref">${f.booking_reference}</span>${f.booked_via ? ` via ${f.booked_via}` : ''}</div>` : ''}
+            ${f.notes ? `<div class="notes">${f.notes}</div>` : ''}
+          </div>
+        </div>`
+      }
+      if (item.kind === 'parking') {
+        const p = item.data as TripParking
+        return `<div class="card">
+          <div class="card-icon">🅿️</div>
+          <div class="card-body">
+            <div class="card-title">${p.company || 'Parking'}${p.reference ? ` <span class="ref">${p.reference}</span>` : ''}</div>
+            <div class="detail">Drop off: ${fmt(p.start_datetime)}</div>
+            <div class="detail">Return: ${fmt(p.end_datetime)}</div>
+            ${p.notes ? `<div class="notes">${p.notes}</div>` : ''}
+          </div>
+        </div>`
+      }
+      if (item.kind === 'taxi') {
+        const t = item.data as TripTaxi
+        return `<div class="card">
+          <div class="card-icon">🚕</div>
+          <div class="card-body">
+            <div class="card-title">${t.company || 'Taxi / Transfer'}</div>
+            <div class="detail">Pickup: ${t.collection_address}</div>
+            <div class="detail">${fmt(t.collection_datetime)}</div>
+            ${t.notes ? `<div class="notes">${t.notes}</div>` : ''}
+          </div>
+        </div>`
+      }
+      if (item.kind === 'accommodation') {
+        const a = item.data as TripAccommodation
+        return `<div class="card">
+          <div class="card-icon">${ACCOMMODATION_ICONS[a.accommodation_type] ?? '🏠'}</div>
+          <div class="card-body">
+            <div class="card-title">${a.name || ACCOMMODATION_TYPES[a.accommodation_type]}${a.booking_reference ? ` <span class="ref">${a.booking_reference}</span>` : ''}</div>
+            ${a.address ? `<div class="detail">${a.address}</div>` : ''}
+            ${a.check_in_date ? `<div class="detail">Check in: ${fmtDate(a.check_in_date)}</div>` : ''}
+            ${a.check_out_date ? `<div class="detail">Check out: ${fmtDate(a.check_out_date)}</div>` : ''}
+            ${a.notes ? `<div class="notes">${a.notes}</div>` : ''}
+          </div>
+        </div>`
+      }
+      return ''
+    }).join('')
+
+    const tasksHtml = tripTasks.length > 0 ? `
+      <div class="section-title">To-do</div>
+      <ul class="task-list">
+        ${tripTasks.map(t => `<li class="${t.status === 'done' ? 'done' : ''}">${t.title}${t.due_date ? ` <span class="task-due">(due ${fmtDate(t.due_date)})</span>` : ''}</li>`).join('')}
+      </ul>` : ''
+
+    const html = `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>${trip.name} — Itinerary</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 13px; color: #1a1a1a; padding: 32px; max-width: 800px; margin: 0 auto; }
+    h1 { font-size: 22px; font-weight: 700; color: #1a1a1a; margin-bottom: 4px; }
+    .trip-meta { font-size: 13px; color: #555; margin-bottom: 24px; line-height: 1.6; }
+    .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: #888; margin: 20px 0 10px; border-top: 1px solid #e5e5e5; padding-top: 14px; }
+    .card { display: flex; gap: 12px; padding: 12px 14px; border: 1px solid #e0e0e0; border-radius: 8px; margin-bottom: 8px; break-inside: avoid; }
+    .card-icon { font-size: 18px; flex-shrink: 0; margin-top: 2px; }
+    .card-body { flex: 1; display: flex; flex-direction: column; gap: 4px; }
+    .card-title { font-size: 14px; font-weight: 600; color: #1a1a1a; }
+    .detail { font-size: 12px; color: #444; }
+    .ref { display: inline-block; font-size: 11px; font-weight: 600; background: #fff4f0; color: #c44b20; border-radius: 3px; padding: 1px 5px; letter-spacing: 0.04em; }
+    .ref-row { font-size: 12px; color: #444; }
+    .notes { font-size: 12px; color: #666; background: #f9f7f4; border-radius: 4px; padding: 5px 8px; margin-top: 2px; white-space: pre-wrap; }
+    .task-list { list-style: none; display: flex; flex-direction: column; gap: 5px; }
+    .task-list li { font-size: 13px; padding: 6px 10px; border: 1px solid #e0e0e0; border-radius: 5px; display: flex; align-items: center; gap: 6px; }
+    .task-list li::before { content: '○'; color: #aaa; font-size: 11px; flex-shrink: 0; }
+    .task-list li.done { color: #999; text-decoration: line-through; }
+    .task-list li.done::before { content: '✓'; color: #16a34a; }
+    .task-due { font-size: 11px; color: #888; }
+    .footer { margin-top: 32px; font-size: 11px; color: #aaa; text-align: center; border-top: 1px solid #e5e5e5; padding-top: 12px; }
+    @media print { body { padding: 16px; } .section-title:first-of-type { border-top: none; } }
+  </style>
+</head>
+<body>
+  <h1>✈ ${trip.name}</h1>
+  <div class="trip-meta">
+    ${trip.destination ? `📍 ${trip.destination}<br>` : ''}
+    ${trip.start_date ? `📅 ${fmtDate(trip.start_date)}${trip.end_date && trip.end_date !== trip.start_date ? ` — ${fmtDate(trip.end_date)}` : ''}` : ''}
+    ${trip.description ? `<br>${trip.description}` : ''}
+  </div>
+  ${itinerary.length > 0 ? `<div class="section-title">Itinerary</div>${cards}` : ''}
+  ${tasksHtml}
+  <div class="footer">Generated ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}</div>
+  <script>window.onload = () => window.print()</script>
+</body>
+</html>`
+
+    const w = window.open('', '_blank')
+    if (w) { w.document.write(html); w.document.close() }
+  }
 
   const moveItem = (index: number, direction: 'up' | 'down') => {
     const targetIndex = direction === 'up' ? index - 1 : index + 1
@@ -144,6 +256,7 @@ export default function TripDetail({
         <div className="td-header-actions">
           {isOwner && !confirmDeleteTrip && (
             <>
+              <button className="td-btn-pdf" onClick={handleSavePDF} title="Save itinerary as PDF">📄 PDF</button>
               <button className="td-btn-secondary" onClick={() => setShowSharePanel(true)}>Share</button>
               <button className="td-btn-secondary" onClick={onEditTrip}>Edit</button>
               <button className="td-btn-danger" onClick={() => setConfirmDeleteTrip(true)}>Delete</button>
@@ -180,12 +293,22 @@ export default function TripDetail({
 
       <div className="td-body">
         {isOwner && (
-          <TripTasksSection
-            tasks={tripTasks}
-            onAddTask={onAddTask}
-            onToggleTask={onToggleTask}
-            onDeleteTask={onDeleteTask}
-          />
+          <div className="tasks-collapsible">
+            <button className="tasks-toggle" onClick={() => setTasksOpen(o => !o)}>
+              <span className="tasks-toggle-label">
+                ✓ To-do{tripTasks.length > 0 && <span className="tasks-count">{tripTasks.filter(t => t.status !== 'done').length}/{tripTasks.length}</span>}
+              </span>
+              <span className="tasks-chevron">{tasksOpen ? '▲' : '▼'}</span>
+            </button>
+            {tasksOpen && (
+              <TripTasksSection
+                tasks={tripTasks}
+                onAddTask={onAddTask}
+                onToggleTask={onToggleTask}
+                onDeleteTask={onDeleteTask}
+              />
+            )}
+          </div>
         )}
 
         {itinerary.length === 0 && (
@@ -352,8 +475,16 @@ export default function TripDetail({
         .td-shared-by { font-size: 0.75rem; color: var(--terracotta); font-weight: 500; margin-top: 0.25rem; }
         .td-header-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; flex-wrap: wrap; justify-content: flex-end; }
         .td-confirm-label { font-size: 0.8125rem; color: var(--text-secondary); }
+        .td-btn-pdf { padding: 0.375rem 0.75rem; border-radius: 7px; border: 1px solid #bfdbfe; background: #eff6ff; font-size: 0.8125rem; font-weight: 500; color: #1d4ed8; cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
+        .td-btn-pdf:hover { background: #dbeafe; }
         .td-btn-secondary { padding: 0.375rem 0.75rem; border-radius: 7px; border: 1px solid var(--border); background: white; font-size: 0.8125rem; font-weight: 500; color: var(--text-secondary); cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
         .td-btn-secondary:hover { background: var(--cream-dark); color: var(--deep-brown); }
+        .tasks-collapsible { background: white; border: 1px solid var(--border-light); border-radius: 10px; overflow: hidden; }
+        .tasks-toggle { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: none; border: none; cursor: pointer; font-family: var(--font-body); transition: background 0.13s; }
+        .tasks-toggle:hover { background: var(--cream-dark); }
+        .tasks-toggle-label { font-size: 0.875rem; font-weight: 600; color: var(--deep-brown); display: flex; align-items: center; gap: 0.5rem; }
+        .tasks-count { font-size: 0.75rem; font-weight: 500; color: var(--text-muted); background: var(--cream-dark); border-radius: 10px; padding: 0.1rem 0.45rem; }
+        .tasks-chevron { font-size: 0.625rem; color: var(--text-muted); }
         .td-btn-danger { padding: 0.375rem 0.75rem; border-radius: 7px; border: 1px solid #fca5a5; background: white; font-size: 0.8125rem; font-weight: 500; color: #dc2626; cursor: pointer; font-family: var(--font-body); transition: all 0.15s; }
         .td-btn-danger:hover { background: #fef2f2; }
         .td-add-bar { display: flex; align-items: center; gap: 0.5rem; padding: 0.75rem 1.5rem; background: white; border-bottom: 1px solid var(--border-light); flex-wrap: wrap; flex-shrink: 0; }
@@ -397,7 +528,7 @@ export default function TripDetail({
         .twb-dest { font-size: 0.8125rem; font-weight: 600; color: #0c4a6e; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
         .twb-sublabel { font-size: 0.75rem; color: #0369a1; flex-shrink: 0; }
         .twb-spinner { font-size: 0.8125rem; color: #0369a1; font-style: italic; }
-        .twb-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.375rem; }
+        .twb-days { display: grid; grid-template-columns: repeat(10, 1fr); gap: 0.25rem; }
         .twb-day { display: flex; flex-direction: column; align-items: center; gap: 0.15rem; padding: 0.5rem 0.25rem; border-radius: 10px; background: rgba(255,255,255,0.6); }
         .twb-day-label { font-size: 0.68rem; font-weight: 700; color: #0369a1; text-transform: uppercase; letter-spacing: 0.04em; white-space: nowrap; }
         .twb-day-emoji { font-size: 1.5rem; line-height: 1; }
@@ -432,7 +563,7 @@ function TripWeatherBar({ lat, lon, destination }: { lat: number; lon: number; d
   useEffect(() => {
     setLoading(true)
     fetch(
-      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=7`
+      `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&daily=weathercode,temperature_2m_max,temperature_2m_min&timezone=auto&forecast_days=10`
     )
       .then(r => r.json())
       .then(data => {
@@ -482,7 +613,7 @@ function TripWeatherBar({ lat, lon, destination }: { lat: number; lon: number; d
       <div className="twb-header">
         <span className="twb-icon">🌤️</span>
         <span className="twb-dest">{destination}</span>
-        <span className="twb-sublabel">7-day forecast</span>
+        <span className="twb-sublabel">10-day forecast</span>
       </div>
       <div className="twb-days">
         {days.map(day => (
