@@ -8,6 +8,7 @@ export interface Trip {
   destination: string | null
   destination_lat: number | null
   destination_lon: number | null
+  completed: boolean
   created_at: string
   updated_at: string
 }

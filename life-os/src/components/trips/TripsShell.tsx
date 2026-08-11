@@ -93,6 +93,11 @@ export default function TripsShell({
     await Promise.all([loadTripItems(saved.id), loadShares(saved.id), loadTripTasks(saved.id)])
   }, [refreshTrips, loadTripItems, loadShares, loadTripTasks])
 
+  const handleToggleComplete = useCallback(async (trip: Trip) => {
+    await (supabase as any).from('trips').update({ completed: !trip.completed }).eq('id', trip.id)
+    await refreshTrips()
+  }, [supabase, refreshTrips])
+
   const handleDeleteTrip = useCallback(async () => {
     if (!selectedTrip) return
     await (supabase as any).from('trips').delete().eq('id', selectedTrip.id)
@@ -193,6 +198,7 @@ export default function TripsShell({
           userId={userId}
           onSelectTrip={handleSelectTrip}
           onNewTrip={() => { setEditingTrip(null); setShowTripForm(true) }}
+          onToggleComplete={handleToggleComplete}
         />
 
         <div className="trips-main">
