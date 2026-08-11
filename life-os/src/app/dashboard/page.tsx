@@ -54,9 +54,9 @@ export default async function DashboardPage() {
     { data: validTax },
     { data: validInsurance },
     { data: validMot },
-    { data: warnTax },
-    { data: warnInsurance },
-    { data: warnMot },
+    { data: _warnTax },
+    { data: _warnInsurance },
+    { data: _warnMot },
     { data: serviceRows },
     { data: expiringMortgageRows },
     { data: expiringPolicyRows },
@@ -76,12 +76,10 @@ export default async function DashboardPage() {
       .order('due_date', { ascending: true, nullsFirst: false }),
     supabase.from('projects').select('*').eq('status', 'active'),
     supabase.from('vehicles').select('id, name, reg_number').is('sold_date', null),
-    (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', todayStr),
-    (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', todayStr),
-    (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', todayStr),
-    (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', todayStr).lte('expiry_date', soonStr),
-    (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', todayStr).lte('end_date', soonStr),
-    (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', todayStr).lte('expiry_date', soonStr),
+    (supabase as any).from('vehicle_tax').select('vehicle_id, expiry_date').gte('expiry_date', todayStr),
+    (supabase as any).from('vehicle_policies').select('vehicle_id, end_date').eq('policy_type', 'insurance').gte('end_date', todayStr),
+    (supabase as any).from('vehicle_mots').select('vehicle_id, expiry_date').eq('passed', true).gte('expiry_date', todayStr),
+    { data: null }, { data: null }, { data: null },
     (supabase as any).from('vehicle_services').select('vehicle_id, service_date').order('service_date', { ascending: false }),
     (supabase as any).from('property_mortgages').select('id, property_id, lender, end_date').gte('end_date', todayStr).lte('end_date', ninetyDaysStr).order('end_date', { ascending: true }),
     (supabase as any).from('property_policies').select('id, property_id, policy_type, insurer, end_date').gte('end_date', todayStr).lte('end_date', soonStr).order('end_date', { ascending: true }),
@@ -125,13 +123,26 @@ export default async function DashboardPage() {
   })
   const urgentNoDue = (tasks ?? []).filter((t: any) => t.priority === 1 && !t.due_date)
 
-  // Build vehicle warning data
-  const taxedIds = new Set((validTax ?? []).map((r: any) => r.vehicle_id))
-  const insuredIds = new Set((validInsurance ?? []).map((r: any) => r.vehicle_id))
-  const motIds = new Set((validMot ?? []).map((r: any) => r.vehicle_id))
-  const taxWarnIds = new Set((warnTax ?? []).map((r: any) => r.vehicle_id))
-  const insWarnIds = new Set((warnInsurance ?? []).map((r: any) => r.vehicle_id))
-  const motWarnIds = new Set((warnMot ?? []).map((r: any) => r.vehicle_id))
+  // Build vehicle warning data — per vehicle, use the latest expiry so a newly-added
+  // record with a longer validity clears the warning from an older expiring record.
+  function latestExpiry(rows: any[] | null, dateField: string): Record<string, string> {
+    const map: Record<string, string> = {}
+    for (const r of rows ?? []) {
+      const d = r[dateField] as string
+      if (!map[r.vehicle_id] || d > map[r.vehicle_id]) map[r.vehicle_id] = d
+    }
+    return map
+  }
+  const latestTax = latestExpiry(validTax, 'expiry_date')
+  const latestIns = latestExpiry(validInsurance, 'end_date')
+  const latestMot = latestExpiry(validMot, 'expiry_date')
+
+  const taxedIds = new Set(Object.keys(latestTax))
+  const insuredIds = new Set(Object.keys(latestIns))
+  const motIds = new Set(Object.keys(latestMot))
+  const taxWarnIds = new Set(Object.entries(latestTax).filter(([, exp]) => exp <= soonStr).map(([id]) => id))
+  const insWarnIds = new Set(Object.entries(latestIns).filter(([, exp]) => exp <= soonStr).map(([id]) => id))
+  const motWarnIds = new Set(Object.entries(latestMot).filter(([, exp]) => exp <= soonStr).map(([id]) => id))
   const { overdueIds: serviceOverdueIds, soonIds: serviceSoonIds } = computeServiceStatus(serviceRows ?? [])
 
   const vehicleWarnings = (allVehicles ?? []).map((v: any) => {
