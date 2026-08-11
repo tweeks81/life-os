@@ -22,46 +22,60 @@ const INCLUSIONS = [
   { key: 'includes_no_claims_protection', label: 'No claims protection' },
 ]
 
+function todayStr() {
+  return new Date().toISOString().split('T')[0]
+}
+function oneYearFromToday() {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 1)
+  d.setDate(d.getDate() - 1)
+  return d.toISOString().split('T')[0]
+}
+
 export default function InsuranceForm({
   vehicleId,
   userId,
   policy,
+  renewFrom,
   onSaved,
   onClose,
 }: {
   vehicleId: string
   userId: string
   policy: VehiclePolicy | null
+  renewFrom?: VehiclePolicy | null
   onSaved: () => void
   onClose: () => void
 }) {
   const supabase = createClient()
-  const isEdit = !!policy
+  const isRenewal = !!renewFrom
+  const src = renewFrom ?? policy
+  const isEdit = !!policy && !isRenewal
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [linkedPeople, setLinkedPeople] = useState<LinkedPerson[]>([])
 
-  // Form fields
-  const [insurer, setInsurer] = useState(policy?.insurer ?? '')
-  const [policyNumber, setPolicyNumber] = useState(policy?.policy_number ?? '')
-  const [coverageType, setCoverageType] = useState<CoverageType | ''>(policy?.coverage_type ?? 'comprehensive')
-  const [startDate, setStartDate] = useState(policy?.start_date ?? '')
-  const [endDate, setEndDate] = useState(policy?.end_date ?? '')
-  const [cost, setCost] = useState(policy?.cost?.toString() ?? '')
-  const [excess, setExcess] = useState(policy?.excess?.toString() ?? '')
-  const [autoRenews, setAutoRenews] = useState(policy?.auto_renews ?? false)
-  const [policyHolder, setPolicyHolder] = useState(policy?.policy_holder ?? 'me')
-  const [namedDrivers, setNamedDrivers] = useState<string[]>(policy?.named_drivers ?? [])
+  // Form fields — for renewals, pre-fill from renewFrom but reset dates and notes
+  const [insurer, setInsurer] = useState(src?.insurer ?? '')
+  const [policyNumber, setPolicyNumber] = useState(src?.policy_number ?? '')
+  const [coverageType, setCoverageType] = useState<CoverageType | ''>(src?.coverage_type ?? 'comprehensive')
+  const [startDate, setStartDate] = useState(isRenewal ? todayStr() : (policy?.start_date ?? ''))
+  const [endDate, setEndDate] = useState(isRenewal ? oneYearFromToday() : (policy?.end_date ?? ''))
+  const [cost, setCost] = useState(src?.cost?.toString() ?? '')
+  const [excess, setExcess] = useState(src?.excess?.toString() ?? '')
+  const [autoRenews, setAutoRenews] = useState(src?.auto_renews ?? false)
+  const [policyHolder, setPolicyHolder] = useState(src?.policy_holder ?? 'me')
+  const [namedDrivers, setNamedDrivers] = useState<string[]>(src?.named_drivers ?? [])
   const [inclusions, setInclusions] = useState<Record<string, boolean>>({
-    includes_courtesy_car: policy?.includes_courtesy_car ?? false,
-    includes_breakdown: policy?.includes_breakdown ?? false,
-    includes_legal_cover: policy?.includes_legal_cover ?? false,
-    includes_personal_accident: policy?.includes_personal_accident ?? false,
-    includes_windscreen: policy?.includes_windscreen ?? false,
-    includes_european_cover: policy?.includes_european_cover ?? false,
-    includes_no_claims_protection: policy?.includes_no_claims_protection ?? false,
+    includes_courtesy_car: src?.includes_courtesy_car ?? false,
+    includes_breakdown: src?.includes_breakdown ?? false,
+    includes_legal_cover: src?.includes_legal_cover ?? false,
+    includes_personal_accident: src?.includes_personal_accident ?? false,
+    includes_windscreen: src?.includes_windscreen ?? false,
+    includes_european_cover: src?.includes_european_cover ?? false,
+    includes_no_claims_protection: src?.includes_no_claims_protection ?? false,
   })
-  const [notes, setNotes] = useState(policy?.notes ?? '')
+  const [notes, setNotes] = useState(isRenewal ? '' : (policy?.notes ?? ''))
 
   // Fetch linked contacts
   useEffect(() => {
@@ -148,7 +162,7 @@ export default function InsuranceForm({
     <div className="modal-backdrop" onClick={e => e.target === e.currentTarget && onClose()}>
       <div className="modal-box card">
         <div className="modal-header">
-          <h2 className="modal-title">{isEdit ? 'Edit insurance' : 'Add insurance'}</h2>
+          <h2 className="modal-title">{isRenewal ? 'Renew insurance' : isEdit ? 'Edit insurance' : 'Add insurance'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -268,7 +282,7 @@ export default function InsuranceForm({
         <div className="modal-footer">
           <button className="btn-secondary" onClick={onClose}>Cancel</button>
           <button className="btn-primary" onClick={handleSave} disabled={saving}>
-            {saving ? 'Saving…' : isEdit ? 'Save changes' : 'Add insurance'}
+            {saving ? 'Saving…' : isRenewal ? 'Renew insurance' : isEdit ? 'Save changes' : 'Add insurance'}
           </button>
         </div>
       </div>

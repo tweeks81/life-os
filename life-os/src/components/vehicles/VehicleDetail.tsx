@@ -62,6 +62,7 @@ export default function VehicleDetail({
   const [editingMaintenance, setEditingMaintenance] = useState<VehicleMaintenance | null>(null)
   const [editingPolicy, setEditingPolicy] = useState<VehiclePolicy | null>(null)
   const [editingInsurance, setEditingInsurance] = useState<VehiclePolicy | null>(null)
+  const [renewingInsurance, setRenewingInsurance] = useState<VehiclePolicy | null>(null)
   const [editingTax, setEditingTax] = useState<VehicleTax | null>(null)
 
   const loadTab = useCallback(async (t: Tab) => {
@@ -405,6 +406,9 @@ export default function VehicleDetail({
                     </div>
                     {isOwner && (
                       <div className="record-actions">
+                        {isExpired(pol.end_date) && (
+                          <button className="record-renew-btn" onClick={() => { setRenewingInsurance(pol); setShowInsuranceForm(true) }}>Renew</button>
+                        )}
                         <button className="record-edit-btn" onClick={() => { setEditingInsurance(pol); setShowInsuranceForm(true) }}>Edit</button>
                         <button className="record-delete-btn" onClick={async () => { if (confirm('Delete this insurance record?')) { await (supabase as any).from('vehicle_policies').delete().eq('id', pol.id); loadTab('policies'); onInsuranceChanged() } }}>🗑</button>
                       </div>
@@ -462,7 +466,7 @@ export default function VehicleDetail({
       {showMotForm && <MotForm vehicleId={vehicle.id} userId={userId} mot={editingMot} onSaved={() => { loadTab('mot'); setShowMotForm(false); setEditingMot(null); onMotChanged() }} onClose={() => { setShowMotForm(false); setEditingMot(null) }} />}
       {showServiceForm && <ServiceForm vehicleId={vehicle.id} userId={userId} service={editingService} onSaved={() => { loadTab('service'); setShowServiceForm(false); setEditingService(null); onServiceChanged() }} onClose={() => { setShowServiceForm(false); setEditingService(null) }} />}
       {showMaintenanceForm && <MaintenanceForm vehicleId={vehicle.id} userId={userId} maintenance={editingMaintenance} onSaved={() => { loadTab('maintenance'); setShowMaintenanceForm(false); setEditingMaintenance(null) }} onClose={() => { setShowMaintenanceForm(false); setEditingMaintenance(null) }} />}
-      {showInsuranceForm && <InsuranceForm vehicleId={vehicle.id} userId={userId} policy={editingInsurance} onSaved={() => { loadTab('policies'); setShowInsuranceForm(false); setEditingInsurance(null); onInsuranceChanged() }} onClose={() => { setShowInsuranceForm(false); setEditingInsurance(null) }} />}
+      {showInsuranceForm && <InsuranceForm vehicleId={vehicle.id} userId={userId} policy={renewingInsurance ? null : editingInsurance} renewFrom={renewingInsurance} onSaved={() => { loadTab('policies'); setShowInsuranceForm(false); setEditingInsurance(null); setRenewingInsurance(null); onInsuranceChanged() }} onClose={() => { setShowInsuranceForm(false); setEditingInsurance(null); setRenewingInsurance(null) }} />}
       {showTaxForm && <TaxForm vehicleId={vehicle.id} userId={userId} tax={editingTax} onSaved={() => { loadTab('tax'); setShowTaxForm(false); setEditingTax(null); onTaxChanged() }} onClose={() => { setShowTaxForm(false); setEditingTax(null) }} />}
 
       <style>{`
@@ -523,6 +527,8 @@ export default function VehicleDetail({
         .record-title { font-size: 0.9rem; font-weight: 600; color: var(--deep-brown); }
         .record-subtitle { font-size: 0.875rem; color: var(--text-secondary); font-weight: 400; }
         .record-actions { display: flex; gap: 0.375rem; align-items: center; }
+        .record-renew-btn { font-size: 0.75rem; color: #16a34a; background: #f0fdf4; border: 1px solid #86efac; border-radius: 5px; padding: 0.2rem 0.5rem; cursor: pointer; font-family: var(--font-body); font-weight: 600; transition: all 0.12s; }
+        .record-renew-btn:hover { background: #16a34a; color: white; border-color: #16a34a; }
         .record-edit-btn { font-size: 0.75rem; color: var(--text-muted); background: white; border: 1px solid var(--border); border-radius: 5px; padding: 0.2rem 0.5rem; cursor: pointer; font-family: var(--font-body); transition: all 0.12s; }
         .record-edit-btn:hover { color: var(--deep-brown); border-color: var(--warm-brown); }
         .record-delete-btn { font-size: 0.75rem; background: none; border: none; cursor: pointer; color: var(--text-muted); padding: 0.2rem; transition: color 0.12s; }
