@@ -119,15 +119,27 @@ export default function TripDetail({
     const fmt = (dt: string | null | undefined) => dt ? new Date(dt).toLocaleString('en-GB', { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '—'
     const fmtDate = (d: string | null | undefined) => d ? new Date(d + 'T00:00:00').toLocaleDateString('en-GB', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) : '—'
 
+    const fmtFlightDT = (dt: string, tz: string | null | undefined): string => {
+      if (!tz) return formatDTInZone(dt, null)
+      const local = formatDTInZone(dt, tz)
+      const abbr = tzShort(dt, tz)
+      const isUK = tz === 'Europe/London' || abbr === 'GMT' || abbr === 'BST'
+      if (isUK) return `${local} ${abbr}`
+      const ukTime = new Date(dt).toLocaleString('en-GB', { hour: '2-digit', minute: '2-digit', timeZone: 'Europe/London' })
+      const ukAbbr = tzShort(dt, 'Europe/London')
+      return `${local} ${abbr} (${ukTime} ${ukAbbr})`
+    }
+
     const cards = itinerary.map(item => {
       if (item.kind === 'flight') {
         const f = item.data as TripFlight
+        const duration = flightDuration(f.depart_datetime, f.arrive_datetime)
         return `<div class="card">
           <div class="card-icon">✈️</div>
           <div class="card-body">
-            <div class="card-title">${f.depart_airport} → ${f.arrive_airport}${f.flight_number ? ` <span class="ref">${f.flight_number}</span>` : ''}</div>
-            <div class="detail">Depart: ${fmt(f.depart_datetime)}${f.depart_terminal ? `, Terminal ${f.depart_terminal}` : ''}</div>
-            <div class="detail">Arrive: ${fmt(f.arrive_datetime)}${f.arrive_terminal ? `, Terminal ${f.arrive_terminal}` : ''}</div>
+            <div class="card-title">${f.depart_airport} → ${f.arrive_airport}${f.flight_number ? ` <span class="ref">${f.flight_number}</span>` : ''}${duration ? ` <span class="flight-dur">${duration}</span>` : ''}</div>
+            <div class="detail">Depart: ${fmtFlightDT(f.depart_datetime, f.depart_timezone)}${f.depart_terminal ? `, Terminal ${f.depart_terminal}` : ''}</div>
+            <div class="detail">Arrive: ${fmtFlightDT(f.arrive_datetime, f.arrive_timezone)}${f.arrive_terminal ? `, Terminal ${f.arrive_terminal}` : ''}</div>
             ${f.booking_reference ? `<div class="ref-row">Booking ref: <span class="ref">${f.booking_reference}</span>${f.booked_via ? ` via ${f.booked_via}` : ''}</div>` : ''}
             ${f.notes ? `<div class="notes">${f.notes}</div>` : ''}
           </div>
@@ -190,6 +202,7 @@ export default function TripDetail({
     .card-title { font-size: 14px; font-weight: 600; color: #1a1a1a; }
     .detail { font-size: 12px; color: #444; }
     .ref { display: inline-block; font-size: 11px; font-weight: 600; background: #fff4f0; color: #c44b20; border-radius: 3px; padding: 1px 5px; letter-spacing: 0.04em; }
+    .flight-dur { display: inline-block; font-size: 11px; font-weight: 500; background: #f0f4ff; color: #3b5bdb; border-radius: 3px; padding: 1px 5px; }
     .ref-row { font-size: 12px; color: #444; }
     .notes { font-size: 12px; color: #666; background: #f9f7f4; border-radius: 4px; padding: 5px 8px; margin-top: 2px; white-space: pre-wrap; }
     @media print { body { padding: 16px; } .section-title:first-of-type { border-top: none; } }
