@@ -9,6 +9,15 @@ import VehiclesList from './VehiclesList'
 import VehicleDetail from './VehicleDetail'
 import VehicleForm from './VehicleForm'
 
+function latestExpiry(rows: any[] | null, dateField: string): Record<string, string> {
+  const map: Record<string, string> = {}
+  for (const r of rows ?? []) {
+    const d = r[dateField] as string
+    if (!map[r.vehicle_id] || d > map[r.vehicle_id]) map[r.vehicle_id] = d
+  }
+  return map
+}
+
 function computeServiceStatus(serviceRows: { vehicle_id: string; service_date: string }[]) {
   const latest: Record<string, string> = {}
   for (const r of serviceRows) {
@@ -78,23 +87,22 @@ export default function VehiclesShell({
     const soon = soonDate.toISOString().split('T')[0]
     const [
       { data: taxData }, { data: insData }, { data: motData },
-      { data: taxWarnData }, { data: insWarnData }, { data: motWarnData },
       { data: svcData },
     ] = await Promise.all([
-      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today),
-      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today),
-      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today),
-      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today).lte('expiry_date', soon),
-      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today).lte('end_date', soon),
-      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today).lte('expiry_date', soon),
+      (supabase as any).from('vehicle_tax').select('vehicle_id, expiry_date').gte('expiry_date', today),
+      (supabase as any).from('vehicle_policies').select('vehicle_id, end_date').eq('policy_type', 'insurance').gte('end_date', today),
+      (supabase as any).from('vehicle_mots').select('vehicle_id, expiry_date').eq('passed', true).gte('expiry_date', today),
       (supabase as any).from('vehicle_services').select('vehicle_id, service_date').order('service_date', { ascending: false }),
     ])
-    setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
-    setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
-    setMotIds(new Set((motData ?? []).map((r: any) => r.vehicle_id)))
-    setTaxWarnIds(new Set((taxWarnData ?? []).map((r: any) => r.vehicle_id)))
-    setInsWarnIds(new Set((insWarnData ?? []).map((r: any) => r.vehicle_id)))
-    setMotWarnIds(new Set((motWarnData ?? []).map((r: any) => r.vehicle_id)))
+    const lt = latestExpiry(taxData, 'expiry_date')
+    const li = latestExpiry(insData, 'end_date')
+    const lm = latestExpiry(motData, 'expiry_date')
+    setTaxedIds(new Set(Object.keys(lt)))
+    setInsuredIds(new Set(Object.keys(li)))
+    setMotIds(new Set(Object.keys(lm)))
+    setTaxWarnIds(new Set(Object.entries(lt).filter(([, exp]) => exp <= soon).map(([id]) => id)))
+    setInsWarnIds(new Set(Object.entries(li).filter(([, exp]) => exp <= soon).map(([id]) => id)))
+    setMotWarnIds(new Set(Object.entries(lm).filter(([, exp]) => exp <= soon).map(([id]) => id)))
     const { overdueIds, soonIds } = computeServiceStatus(svcData ?? [])
     setServiceOverdueIds(overdueIds)
     setServiceDueSoonIds(soonIds)
@@ -104,36 +112,30 @@ export default function VehiclesShell({
     const today = new Date().toISOString().split('T')[0]
     const soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30)
     const soon = soonDate.toISOString().split('T')[0]
-    const [{ data: taxData }, { data: taxWarnData }] = await Promise.all([
-      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today),
-      (supabase as any).from('vehicle_tax').select('vehicle_id').gte('expiry_date', today).lte('expiry_date', soon),
-    ])
-    setTaxedIds(new Set((taxData ?? []).map((r: any) => r.vehicle_id)))
-    setTaxWarnIds(new Set((taxWarnData ?? []).map((r: any) => r.vehicle_id)))
+    const { data } = await (supabase as any).from('vehicle_tax').select('vehicle_id, expiry_date').gte('expiry_date', today)
+    const lt = latestExpiry(data, 'expiry_date')
+    setTaxedIds(new Set(Object.keys(lt)))
+    setTaxWarnIds(new Set(Object.entries(lt).filter(([, exp]) => exp <= soon).map(([id]) => id)))
   }, [supabase])
 
   const refreshInsuranceStatus = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0]
     const soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30)
     const soon = soonDate.toISOString().split('T')[0]
-    const [{ data: insData }, { data: insWarnData }] = await Promise.all([
-      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today),
-      (supabase as any).from('vehicle_policies').select('vehicle_id').eq('policy_type', 'insurance').gte('end_date', today).lte('end_date', soon),
-    ])
-    setInsuredIds(new Set((insData ?? []).map((r: any) => r.vehicle_id)))
-    setInsWarnIds(new Set((insWarnData ?? []).map((r: any) => r.vehicle_id)))
+    const { data } = await (supabase as any).from('vehicle_policies').select('vehicle_id, end_date').eq('policy_type', 'insurance').gte('end_date', today)
+    const li = latestExpiry(data, 'end_date')
+    setInsuredIds(new Set(Object.keys(li)))
+    setInsWarnIds(new Set(Object.entries(li).filter(([, exp]) => exp <= soon).map(([id]) => id)))
   }, [supabase])
 
   const refreshMotStatus = useCallback(async () => {
     const today = new Date().toISOString().split('T')[0]
     const soonDate = new Date(); soonDate.setDate(soonDate.getDate() + 30)
     const soon = soonDate.toISOString().split('T')[0]
-    const [{ data: motData }, { data: motWarnData }] = await Promise.all([
-      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today),
-      (supabase as any).from('vehicle_mots').select('vehicle_id').eq('passed', true).gte('expiry_date', today).lte('expiry_date', soon),
-    ])
-    setMotIds(new Set((motData ?? []).map((r: any) => r.vehicle_id)))
-    setMotWarnIds(new Set((motWarnData ?? []).map((r: any) => r.vehicle_id)))
+    const { data } = await (supabase as any).from('vehicle_mots').select('vehicle_id, expiry_date').eq('passed', true).gte('expiry_date', today)
+    const lm = latestExpiry(data, 'expiry_date')
+    setMotIds(new Set(Object.keys(lm)))
+    setMotWarnIds(new Set(Object.entries(lm).filter(([, exp]) => exp <= soon).map(([id]) => id)))
   }, [supabase])
 
   const refreshServiceStatus = useCallback(async () => {
